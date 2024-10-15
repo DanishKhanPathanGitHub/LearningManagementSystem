@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>home</title>
+
+   <!-- font awesome cdn link  -->
+   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.34/moment-timezone-with-data.min.js"></script>
+   <!-- custom css file link  -->
+   <link rel="stylesheet" href="{% static "css/style.css" %}">
+
+</head>
+<body>
+
+{% include "header.html" %}
+<!-- courses section starts  -->
+<section class="courses">
+   {% for message in messages %}
+   <div class="alert alert-{{ message.tags }}">
+    <span style="font-size:16px; color:red;">  {{ message }} </style>
+  </div>
+   {% endfor %}
+</section>
+{% if user.is_authenticated %}
+<section class="courses">
+
+   <div class="box-container">
+
+      {% if classrooms %}
+      {% for classroom in classrooms  %}
+      <div class="box">
+         <div class="tutor">
+            <img src="{{classroom.tutor.profile_pic.url}}" alt="">
+            <div>
+               <h3>{{classroom.name}}</h3>
+               <span>{{classroom.created_at}}</span>
+            </div>
+         </div>
+         <img src="{{ classroom.cover_pic.url }}" class="thumb" alt="">
+         <h3 class="title">{{classroom.tutor.user.username}}</h3>
+         {% if request.user.role == 2 %}
+         <a href="{% url "tutorClassroom" classroom.id %}" class="inline-btn">Go to classroom</a>
+         {% else %}
+         <a href="{% url "classroom" classroom.id %}" class="inline-btn">Go to classroom</a>
+         {% endif %}
+      </div>
+      {% endfor %}
+      {% else %}
+      {% endif %}
+
+   </div>
+
+   <div class="more-btn">
+      {% if user.role == 1 %}
+      <a href="{% url "classroomJoin" %}" class="inline-option-btn">Join classroom</a>
+      {% else %}
+      <a href="{% url "classroomAdd" %}" class="inline-option-btn">Create classroom</a>
+      {% endif %}
+   </div>
+
+</section>
+{% else %}
+<section class="courses">
+
+   <h2><span style="font-size:16px;">Welcome to classroom</span></2>
+   <br><br>
+   <p>
+      <span style="font-size:12px;">
+         We provide virtual classroom which you can be as tutor Create, and be as a student join.
+         where you can manage or access the academic features like Lectures management, Assignments management,
+         Messages, Live chatroom, Notification management both designed as per need of tutor and student. Join today
+         to ease your online tutoring
+   </span></p>
+   <br>
+   <div class="more-btn">
+      <a href="{% url "registerUser" %}" class="inline-option-btn">register </a>
+   </div>
+</section>
+{% endif %}
+<!-- courses section ends -->
+
+
+<!-- custom js file link  -->
+<script src="{% static "js/script.js" %}"></script>
+   
+</body>
+</html>

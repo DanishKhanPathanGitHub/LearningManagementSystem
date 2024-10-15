@@ -1,0 +1,95 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>home</title>
+
+   <!-- font awesome cdn link  -->
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+   <!-- custom css file link  -->
+   <link rel="stylesheet" href="{% static "css/style.css" %}">
+
+</head>
+<body>
+
+{% include "header.html" %}
+
+<section class="form-container">
+
+    <form class="register" action="{% url "registerUser" %}"  id="registrationForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h3>create account</h3>
+        <div class="flex">
+            <div class="col">
+                <p>firstname <span>*</span></p>
+                <input type="text" name="firstname" value="{{ user_form.firstname.value | default:""}}" placeholder="enter your first name" class="box">
+                <p>lastname <span>*</span></p>
+                <input type="text" name="lastname" value="{{ user_form.lastname.value | default:"" }}" placeholder="enter your last name" class="box">
+                <p>username <span>*</span></p>
+                <input type="text" name="username" value="{{ user_form.username.value | default:""}}" placeholder="enter your username" class="box">
+                <p>email <span>*</span></p>
+                <input type="email" name="email" value="{{ user_form.email.value | default:""}}" placeholder="enter your email" class="box">
+            </div>
+            <div class="col">
+                <p>your password <span>*</span></p>
+                <input type="password" name="password" placeholder="enter your password" class="box">
+                <p>confirm password <span>*</span></p>
+                <input type="password" name="confirm_password" placeholder="confirm your password" class="box">
+                <p>role <span>*</span></p>
+                <select name="role" value="{{user_form.role.value}}" required class="box">
+                    <option value="" disabled selected>Select your role</option>
+                    <option value="{{1}}">Student</option>
+                    <option value="{{2}}">Tutor</option>
+                </select>
+                {% for field in user_form %}
+                        {% if field.errors %}
+                            {% for error in field.errors %}
+                                <p><span style="color:red; font-size:14px;">{{field.name}}: {{ error }}</span></p>
+                                <br>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                <span style="color:red; font-size:14px;">{{ user_form.non_field_errors }}</span>
+
+                {% for message in messages %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+
+                <span style="color:red; font-size:14px;">{{ message }}</span>
+            </div>
+            {% endfor %}
+            </div>
+            
+            
+        </div>
+        <br>
+        
+        <p class="link">already have an account? <a href="{% url 'login' %}">login now</a></p>
+        <input type="submit" name="submit"  id="submitBtn" value="register now" class="btn">
+        <div id="loadingIndicator" style="display: none;">
+            <p>Please wait...</p>
+            <div class="spinner"></div> <!-- You can add CSS to style your spinner -->
+        </div>
+    </form>
+
+</section>
+
+<!-- custom js file link  -->
+<script src="{% static "js/script.js" %}"></script>
+<script>
+    document.getElementById('registrationForm').addEventListener('submit', function(event) {
+        // Show loading indicator
+        console.log('JavaScript loaded'); // Confirm that the script is running
+        document.getElementById('loadingIndicator').style.display = 'block';
+        // Hide submit button (optional)
+        document.getElementById('submitBtn').style.display = 'none';
+        
+        // Optionally, you can disable the submit button to prevent multiple submissions
+        document.getElementById('submitBtn').disabled = true;
+     });
+</script>
+</body>
+</html>

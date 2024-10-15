@@ -1,0 +1,260 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications</title>
+
+    <!-- Font Awesome CDN link -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- Ensure jQuery is included -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.34/moment-timezone-with-data.min.js"></script>
+    <script src="{% static 'js/script.js' %}"></script>
+    <!-- Custom CSS file link -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+            padding-top: 7rem; /* Space for the fixed header */
+            height: 100vh; /* Full viewport height */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .notification-wrapper-unique {
+            flex: 1; /* Take remaining vertical space */
+            width: 860px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow-y: auto; /* Allow scrolling if content exceeds the height */
+        }
+
+        .notification-header-unique {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .notification-title-unique {
+            font-size: 2.75rem;
+            margin: 0;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .notification-dropdown-unique {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-select-unique {
+            padding: 0.5rem 1.2rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            background-color: #f8f8f8;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .dropdown-select-unique:hover {
+            border-color: #aaa;
+        }
+
+        .notification-list-unique {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .notification-item-unique {
+            padding: 1rem;
+            border-bottom: 1px solid #ececec;
+            transition: background-color 0.3s ease;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            height:65px;
+            font-size:2rem;
+            flex-direction: column; /* Change to column for stacking */
+        }
+
+        .notification-title-unread {
+            font-weight: bold;
+            color: #000;
+            max-width: 70%; /* Limit title width to 70% */
+            overflow: hidden; /* Hide overflow */
+            text-overflow: ellipsis; /* Show ellipsis for overflowed text */
+            white-space: nowrap; /* Prevent title wrapping */
+        }
+
+        .notification-title-read {
+            font-weight: normal;
+            color: #888;
+            max-width: 70%; /* Limit title width to 70% */
+            overflow: hidden; /* Hide overflow */
+            text-overflow: ellipsis; /* Show ellipsis for overflowed text */
+            white-space: nowrap; /* Prevent title wrapping */
+        }
+
+        .timestamp {
+            margin-left: 10px; /* Space between title and timestamp */
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .notification-details-unique {
+            display: none;
+            padding: 1.2rem;
+            border: 1px solid #ddd;
+            background-color: #fefefe;
+            margin-top: 0.5rem; /* Adjust margin to separate from item */
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            min-height: 180px;
+            max-height: 300px; /* Set max height for details */
+            overflow-y: auto; /* Allow vertical scrolling */
+            margin-bottom: 1.2rem;
+        }
+
+        .notification-details-active {
+            display: block; /* Show details when active */
+        }
+
+        .close-details-button-unique,
+        .view-details-button-unique {
+            font-size: 0.9rem;
+            color: #007bff;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        .close-details-button-unique:hover,
+        .view-details-button-unique:hover {
+            background-color: #0056b3;
+        }
+        #filter-options{
+            font-size:2rem;
+        }
+
+        /* Ensure empty space is taken up */
+        .notification-list-unique:empty::before {
+            content: "No notifications available."; /* Placeholder text */
+            display: block;
+            text-align: center;
+            padding: 1rem;
+            color: #888;
+        }
+        @media (max-width: 800px) {
+            .notification-wrapper-unique{
+                width:88%;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% include "header.html" %}
+    <div class="notification-wrapper-unique">
+        <div class="notification-header-unique">
+            <h1 class="notification-title-unique">Notifications</h1>
+            <div class="notification-dropdown-unique">
+                <select id="filter-options" class="dropdown-select-unique" onchange="filterNotifications()">
+                    <option value="">Latest</option>
+                    <option value="seen" {% if request.GET.filter == "seen" %}selected{% endif %}>Seen</option>
+                    <option value="unread" {% if request.GET.filter == "unread" %}selected{% endif %}>Unread</option>
+                </select>
+            </div>
+        </div>
+        <ul class="notification-list-unique">
+            {% for noti in notis %}
+            <li class="notification-item-unique">
+                <div onclick="toggleDetails('{{ noti.id }}')">
+                    <span class="{% if noti.read %}notification-title-read{% else %}notification-title-unread{% endif %}">{{ noti.title|truncatechars:35 }}</span><br>
+                    <span class="timestamp utc-time" data-utc="{{ noti.timestamp|date:'Y-m-d\TH:i:s' }}"></span>
+                </div>
+                <div class="notification-details-unique" id="details-{{ noti.id }}">
+                    <h3>{{ noti.title }}</h3>
+                    <span>{{ noti.content }}</span>
+                    {% if noti.link %}
+                    <a href="{{noti.link}}"><button class="close-details-button-unique">
+                        <i class="fa fa-go"></i>Go
+                    </button></a><br>
+                    {% endif %}
+                    <button class="close-details-button-unique" onclick="event.stopPropagation(); toggleDetails('{{ noti.id }}')">
+                        <i class="fa fa-times"></i> Close
+                    </button>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        function toggleDetails(id) {
+            const details = document.getElementById(`details-${id}`);
+            details.classList.toggle('notification-details-active');
+            $.ajax({
+                url: `/notifications/mark-read/${id}/`,  // Make sure the URL matches your Django URL pattern
+                type: 'GET',
+                success: function(response) {
+                    if (response.status == "success") {
+                        // If successful, update the notification title class to show as read
+                        const notificationTitle = details.previousElementSibling.querySelector('span');
+                        notificationTitle.classList.remove('notification-title-unread');
+                        notificationTitle.classList.add('notification-title-read');
+                        
+                        const notificationBadge = document.querySelector('.notification-badge');
+                        let currentCount = parseInt(notificationBadge.textContent, 10);
+                        if (currentCount > 0) {
+                            notificationBadge.textContent = currentCount - 1;
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error marking notification as read:', error);
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the current filter from the URL
+            const queryParams = new URLSearchParams(window.location.search);
+            const filterValue = queryParams.get('filter');
+        
+            // Set the selected option in the dropdown based on the filter value
+            if (filterValue) {
+                const filterDropdown = document.getElementById('filter-options');
+                filterDropdown.value = filterValue;
+            }
+        });
+        function filterNotifications() {
+            const filterValue = document.getElementById('filter-options').value;
+            const queryString = filterValue ? `?filter=${filterValue}` : '';
+            window.location.href = window.location.pathname + queryString;
+        }
+
+        
+
+    </script>
+</body>
+</html>

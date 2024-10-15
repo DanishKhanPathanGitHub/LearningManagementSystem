@@ -1,0 +1,366 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+{% for message in messages %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+<span style="color:red; font-size:14px;">{{ message }}</span>
+</div>
+{% endfor %}
+<section class="tutor-dashboard">
+    <!-- Bottom Section -->
+    <div class="dashboard-bottom-section">
+        <!-- Students Table -->
+        <div class="dashboard-table-container">
+            <h2 class="table-title"><span style="font-size:25px; color:blue;">Announcements</span></h2>
+            <br>
+            <select id="filter-dropdown" class="filter-dropdown form-control" onchange="filterAnnouncements()">
+                <option value="">Latest</option>
+                <option value="today">Today</option>
+                <option value="this_week">This week</option>
+                <option value="this_month">This month</option>
+            </select>
+            <br><br>
+            {% if user.role == 2 %}
+            <button class="view-profile-button text-2xl px-10 py-6 mb-4" id="add-announcement-button">Add New announcement</button>
+            {% if announcements %}
+            <p class="mt-2 mb-6 text-white bg-red-500 p-4 text-3xl">Click on the announcement to select multiple announcement for delete in one go</p>
+            {% endif %}
+            {% endif %}
+            <div class="students-table">
+                <!-- Form Card -->
+                <div class="announcement-form-card" id="announcement-form-card" style="display: none;">
+                    <div class="announcement-card-header">
+                        <h3>Add Announcement</h3>
+                        <button type="button" class="close-button" id="cancel-add-announcement">&times;</button>
+                    </div>
+                    <div class="announcement-card-body">
+                        <form id="announcement-form" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="title">Title*</label>
+                                <input type="text" id="title" name="title" value="{{ announcement_form.title.value | default:'' }}" placeholder="Enter title of announcement" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="content">Content</label>
+                                <textarea id="content" name="content" placeholder="Enter content of announcement" class="form-control">{{ announcement_form.content.value | default:'' }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="file">Attach File</label>
+                                <input type="file" id="file" name="file" accept="file/*" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="link">Attach Link</label>
+                                <input type="url" id="link" name="link" value="{{ announcement_form.link.value | default:'' }}" placeholder="Attach valid link otherwise won't work (optional)" class="form-control">
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="announcement-submit-form-button px-3 py-2 text-2xl">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            
+                <!-- Sample Table Data -->
+                {% if announcements %}
+                <button id="delete-selected-announcements" class="btn btn-danger hidden">Delete Selected Announcements</button>
+                {% for announcement in announcements %}
+                
+                <div class="student-table-row" id="announcement-{{ announcement.id }}">
+                    <div class="col-student-table-row-columns-name"
+                    data-announcement-id="{{ announcement.id }}" 
+                    onmousedown="startSelection(event, '{{ announcement.id }}')" 
+                    onmouseup="endSelection()" 
+                    onmouseleave="endSelection()">
+                    <p class="student-name">{{announcement.title}}</p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    </div>
+                    <div class="col-student-table-row-columns-view">
+                    <button class="view-profile-button" onclick="toggleAnnouncementDetail('{{ announcement.id }}', this)">
+                        <i class="fa fa-eye" aria-hidden="true"></i><span class="px-3 py-2 text-2xl"> View</span>
+                    </button>
+                    </div>
+                </div>
+                <div class="announcement-detail" id="announcement-detail-{{ announcement.id }}">
+                    <p><span style="font-size:25px;">{{ announcement.title }}</span></p><br>
+                    <p><span style="font-size:15px;">{{ announcement.content }}</span></p><br>
+                    <span style="font-size:12px;" class="student-email utc-time" data-utc="{{ announcement.upload_date|date:'Y-m-d\TH:i:s' }}" ></span><br><br>
+                    {% if announcement.file %}
+                    <a class="view-profile-button" href="{{ announcement.file.url }}" target="_blank">Open attatchment</a>
+                    {% endif %}
+                    {% if announcement.link %}
+                    {% if user.role == 1 %}
+                    <a class="view-profile-button px-5 py-3 text-2xl" href="{{ announcement.link }}" target="_blank">Open link</a>
+                    {% else %}
+                    <a class="view-profile-button px-5 py-3 text-2xl" href="{{ announcement.tutor_link }}" target="_blank">Open link</a>
+                    {% endif %}
+                    {% endif %}
+                    <br><br>
+                    {% if user.role == 2 %}
+                    <button class="delete-announcement-button btn btn-danger" 
+                        data-announcement-id="{{ announcement.id }}"
+                        data-class-id="{{ Class.id }}"
+                        data-delete-url="{% url 'announcement_delete' id=Class.id anid=announcement.id %}">
+                    Delete announcement
+                    </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="requester-name">No Announcements</p>
+                {% endif %}
+            </div>
+            
+        </div>
+  
+    </div>
+</section>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the current filter from the URL
+        const queryParams = new URLSearchParams(window.location.search);
+        const filterValue = queryParams.get('filter');
+    
+        // Set the selected option in the dropdown based on the filter value
+        if (filterValue) {
+            const filterDropdown = document.getElementById('filter-dropdown');
+            filterDropdown.value = filterValue;
+        }
+    });
+    function filterAnnouncements() {
+        const filterValue = document.getElementById('filter-dropdown').value;
+        const queryString = filterValue ? `?filter=${filterValue}` : '';
+        window.location.href = window.location.pathname + queryString;
+    }
+
+    function toggleAnnouncementDetail(id, button) {
+        var detailElement = document.getElementById('announcement-detail-' + id);
+        var icon = button.querySelector('i'); // Get the icon element
+        var text = button.querySelector('span'); // Get the text element
+        
+        if (detailElement.style.display === 'none' || detailElement.style.display === '') {
+            detailElement.style.display = 'block';
+            icon.classList.remove('fa-eye'); // Remove eye icon
+            icon.classList.add('fa-times'); // Add times icon (close)
+            text.innerHTML = ' Close'; // Update text to Close
+        } else {
+            detailElement.style.display = 'none';
+            icon.classList.remove('fa-times'); // Remove times icon
+            icon.classList.add('fa-eye'); // Add eye icon
+            text.innerHTML = ' View'; // Update text to View
+        }
+    }
+
+    $(document).ready(function() {
+        $('.delete-announcement-button').click(function() {
+            var button = $(this);
+            var announcementId = button.data('announcement-id');
+            var classId = button.data('class-id');
+            var deleteUrl = button.data('delete-url');
+    
+            // SweetAlert2 confirmation dialog
+            Swal.fire({
+                title: 'Are you sure?',
+                text: 'You won\'t be able to revert this!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: deleteUrl,
+                        type: 'POST',
+                        data: {
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(response) {
+                            if (response.status == 'success') {
+                                $('#announcement-detail-' + announcementId).remove(); // Remove the detail card
+                                $('#announcement-' + announcementId).remove(); // Remove the row containing the button
+                                Swal.fire(
+                                    'The announcement has been deleted.',
+                                    'success'
+                                );
+                            } else {
+                                Swal.fire(
+                                    'Error!',
+                                    response.message,
+                                    'error'
+                                );
+                            }
+                        },
+                        error: function(xhr, textStatus, errorThrown) {
+                            Swal.fire(
+                                'Error!',
+                                'An error occurred: ' + errorThrown,
+                                'error'
+                            );
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    let selectedAnnouncements = new Set();
+
+    function startSelection(event, announcementId) {
+        console.log(`startSelection called for ID: ${announcementId}`);
+        const announcementRow = document.getElementById(`announcement-${announcementId}`);
+        
+        if (!announcementRow) {
+            return; // Exit if the element is not found
+        }
+        announcementRow.classList.toggle('selected');
+        
+        if (announcementRow.classList.contains('selected')) {
+            selectedAnnouncements.add(announcementId);
+        } else {
+            selectedAnnouncements.delete(announcementId);
+            console.log('reached here deleted');
+        }
+
+        // Show delete button if any announcement is selected
+        document.getElementById('delete-selected-announcements').classList.toggle('hidden', selectedAnnouncements.size === 0);
+       
+    }
+
+    function endSelection() {
+        // This function can be expanded to handle any cleanup
+    }
+
+    // Handle deletion of selected announcements
+    document.getElementById('delete-selected-announcements').addEventListener('click', function() {
+        if (selectedAnnouncements.size > 0) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Disable all interactions
+                    document.body.style.pointerEvents = 'none';
+                    Swal.fire({
+                        title: 'Deleting...',
+                        html: 'Please wait while we delete the announcements.',
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Prepare the data for deletion
+                    const announcementIds = Array.from(selectedAnnouncements);
+
+                    // Perform AJAX request to delete announcements
+                    $.ajax({
+                        url: '/classroom/{{ Class.id }}/announcements_delete_bulk/',  // Set this URL in your Django view
+                        type: 'POST',
+                        data: {
+                            'announcement_ids': announcementIds,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                // Remove selected announcements from the DOM
+                                announcementIds.forEach(id => {
+                                    document.getElementById(`announcement-${id}`).remove();
+                                    document.getElementById(`announcement-detail-${id}`).remove();
+                                });
+                                selectedAnnouncements.clear();  // Clear selection
+                                document.getElementById('delete-selected-announcements').classList.add('hidden');  // Hide delete button
+                                Swal.fire(
+                                    'Deleted!',
+                                    'Your announcements have been deleted.',
+                                    'success'
+                                );
+                            } else {
+                                Swal.fire('Error!', response.message, 'error');
+                            }
+                        },
+                        error: function() {
+                            Swal.fire('Error!', 'An error occurred while deleting announcements.', 'error');
+                        },
+                        complete: function() {
+                            // Enable interactions again
+                            document.body.style.pointerEvents = 'auto';
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    
+
+    $(document).ready(function() {
+        // Show the form when "Add Announcement" button is clicked
+        $('#add-announcement-button').click(function() {
+            $('#announcement-form-card').show(); // Show the form card
+        });
+    
+        // Hide the form when "Cancel" button is clicked
+        $('#cancel-add-announcement').click(function() {
+            $('#announcement-form-card').hide(); // Hide the form card
+        });
+    
+        // Handle form submission via AJAX
+        $('#announcement-form').submit(function(event) {
+            event.preventDefault(); // Prevent the default form submission
+    
+            var formData = new FormData(this); // Gather form data
+    
+            $.ajax({
+                url: "{% url 'announcements_add' id=Class.id %}",
+                type: 'POST',
+                data: formData,
+                contentType: false, // Let jQuery set content type
+                processData: false, // Do not process data
+                success: function(response) {
+                    if (response.status == 'success') {
+                        // Add the new announcement row to the table
+                        Swal.fire({
+                            title: 'Added!',
+                            text: 'The announcement has been added.',
+                            icon: 'success'
+                        }).then(() => {
+                            // Reload the page after the alert is closed
+                            location.reload();
+                        });
+    
+                        // Optionally show a success message
+                        
+                    } else {
+                        let errorMessages = [];
+                        for (const [field, errors] of Object.entries(response.errors)) {
+                            errors.forEach(error => {
+                                errorMessages.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error}`);
+                            });
+                        }
+                        const errorMessage = errorMessages.join('<br>');
+    
+                        // Show errors in SweetAlert2
+                        Swal.fire({
+                            title: 'Error!',
+                            html: errorMessage, // Use HTML to display each error on a new line
+                            icon: 'error'
+                        });
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    console.error(xhr.responseText);
+                    Swal.fire(
+                        'Error!',
+                        'An error occurred: ' + xhr.responseText,
+                        'error'
+                    );
+                }
+            });
+        });
+    });
+
+</script>
+{% endblock content %}

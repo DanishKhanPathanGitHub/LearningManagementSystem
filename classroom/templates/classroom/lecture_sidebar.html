@@ -1,0 +1,297 @@
+<section class="lecture-sidebar">
+    {% if sections %}
+    {% else %}
+    <div class="section no-section">
+        No Lectures
+    </div>
+    {% endif %}
+    {% for section in sections %}
+    <div class="section" onclick="toggleLectureItems('section{{ section.order }}')">
+        {{section.order}}. {{ section.title }}
+    </div>
+    <div id="section{{ section.order }}" style="display: {% if section == current_section %} block {% else %} none {% endif %};">
+        <ul>
+            {% if user.role == 2 %}
+                <li>
+                    <div class="button-row">
+                        <button onclick="toggleAddSectionForm('update-section-form-{{ section.id }}', 'update-icon-{{ section.id }}', true)" class="bg-blue-500 text-white">
+                            Update section &nbsp;<i id="update-icon-{{ section.id }}" class="fa fa-pencil"></i>
+                        </button>
+                       
+                        <a href="{% url "add_lecture" Class.id section.id %}" class="button-add-lecture bg-green-500 text-white">
+                            Add lecture &nbsp;<i class="fa fa-plus"></i>
+                        </a>
+                        <button onclick="deleteSection({{ section.id }})" class="bg-red-500 text-white">
+                            Delete Section &nbsp;<i class="fa fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="mt-4" id="update-section-form-{{ section.id }}" style="display:none;">
+                        <form id="sectionForm" method="POST" action="{% url 'update_section' Class.id section.id %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                {{ section_update_form.title.label_tag }}
+                                {{ section_update_form.title }}
+                            </div>
+                            <div class="form-group">
+                                {{ section_update_form.order.label_tag }}
+                                {{ section_update_form.order }}
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Section</button>
+                        </form>
+                        <div id="form-errors" style="color: red;"></div>
+                    </div>
+                </li>
+            {% endif %}
+            {% if section.lectures %}
+                {% if user.role == 1 %}
+                {% for Lecture in section.lectures.all|dictsort:"order" %}
+                    <a href="{% url "lectures" Class.id Lecture.slug %}">
+                        <li class="lecture-item" style="{% if Lecture == lecture %} background-color: #f0f0f0; {% endif %}">
+                            {{Lecture.order}}. {{ Lecture.title|truncatechars:280 }} &nbsp;&nbsp;
+                            <input type="checkbox" id="mark-complete-checkbox-{{Lecture.id}}"
+                            {% if Lecture in completed_lectures %}checked{% endif %} 
+                            data-lecture-id="{{ Lecture.id }}">
+                        </li>
+                    </a>
+                    
+                {% endfor %}
+                {% else %}
+                {% for Lecture in section.lectures.all|dictsort:"order" %}
+                    <a href="{% url "lectures" Class.id Lecture.slug %}">
+                        <li style="{% if Lecture == lecture %} background-color: #f0f0f0; {% endif %}">
+                            {{Lecture.order}}. {{ Lecture.title|truncatechars:28 }} &nbsp;&nbsp; 
+                        </li>
+                    </a>
+                    
+                {% endfor %}
+                {% endif %}
+
+            {% else %}
+                <li>No lectures</li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endfor %}
+
+
+    
+    {% if user.role == 2 %}
+    <div class="section add-section" onclick="toggleAddSectionForm('add-section-form', 'toggle-icon')">
+        Add section <i id="toggle-icon" class="fa fa-plus"></i>
+    </div>
+    <div id="add-section-form" style="display:none;">
+        <form id="sectionForm" method="POST" action="{% url 'add_section' Class.id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                {{ section_form.title.label_tag }}
+                {{ section_form.title }}
+            </div>
+            <div class="form-group">
+                {{ section_form.order.label_tag }}
+                {{ section_form.order }}
+            </div>
+            <button type="submit" class="btn btn-primary">Add Section</button>
+        </form>
+        <div id="form-errors" style="color: red;"></div>
+    </div>
+    {% endif %}
+    
+</section>
+
+<script>
+
+    function toggleLectureItems(sectionId) {
+        // Get the section div by its ID
+        var sectionDiv = document.getElementById(sectionId);
+        
+        // Check if the div is currently visible
+        if (sectionDiv.style.display === "none" || sectionDiv.style.display === "") {
+            // If it's hidden, show it
+            sectionDiv.style.display = "block";
+        } else {
+            // If it's visible, hide it
+            sectionDiv.style.display = "none";
+        }
+    }
+    
+    function toggleAddSectionForm(formId, iconId, isUpdate = false) {
+        const form = document.getElementById(formId);
+        const icon = document.getElementById(iconId);
+        
+        // Toggle the form's visibility
+        form.style.display = form.style.display === "none" ? "block" : "none";
+        
+        // Change the icon depending on whether it's an update button or add section button
+        if (form.style.display === "block") {
+            if (isUpdate) {
+                icon.classList.remove("fa-pencil"); // Remove pencil icon
+            } else {
+                icon.classList.remove("fa-plus"); // Remove plus icon
+            }
+            icon.classList.add("fa-times");   // Add close icon
+        } else {
+            icon.classList.remove("fa-times"); // Remove close icon
+            if (isUpdate) {
+                icon.classList.add("fa-pencil"); // Add pencil icon back
+            } else {
+                icon.classList.add("fa-plus");   // Add plus icon back
+            }
+        }
+    }
+    
+    $(document).ready(function() {
+        // Handle the click event on any checkbox with a unique ID
+        $('input[type="checkbox"][id^="mark-complete-checkbox-"]').change(function() {
+            var lectureId = $(this).data('lecture-id');
+            var isChecked = $(this).is(':checked');
+            
+            // Send AJAX POST request to toggle lecture completion
+            $.ajax({
+                url: '{% url "toggle_lecture_completion" %}',  // Your Django view URL
+                type: 'POST',
+                data: {
+                    'lecture_id': lectureId,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'  // Include the CSRF token
+                },
+                success: function(response) {
+                },
+                error: function(xhr, status, error) {
+                    alert('An error occurred: ' + error);
+                    // Optionally, revert the checkbox state if there was an error
+                    $(this).prop('checked', !isChecked);
+                }
+            });
+        });
+    });
+   
+
+
+    function deleteSection(sectionId) {
+        // Show confirmation dialog with SweetAlert
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/classroom/{{ Class.id }}/lectures/delete_section/${sectionId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Show success message
+                        Swal.fire(
+                            'Deleted!',
+                            data.message,
+                            'success'
+                        ).then(() => {
+                            location.reload(); // Optionally update the page
+                        });
+                    } else {
+                        // Show error message
+                        Swal.fire(
+                            'Failed!',
+                            'Failed to delete the section: ' + data.message,
+                            'error'
+                        );
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire(
+                        'Error!',
+                        'Something went wrong!',
+                        'error'
+                    );
+                });
+            }
+        });
+    }
+
+    {% if lecture_form and lecture_form.non_field_errors or lecture_form.errors %}
+
+    document.addEventListener("DOMContentLoaded", function() {
+        let errorMessage = "<ul>";
+
+        // Loop through non-field errors
+        {% for error in lecture_form.non_field_errors %}
+            errorMessage += "<li>{{ error }}</li>";
+        {% endfor %}
+        
+        // Loop through field-specific errors
+        {% for field in lecture_form %}
+            {% if field.errors %}
+                {% for error in field.errors %}
+                    errorMessage += "<li>{{ field.name }} - {{ error }}</li>";
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+        
+        errorMessage += "</ul>";
+
+        Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            html: errorMessage,  // Show errors as HTML
+            confirmButtonText: 'OK',
+        });
+    });
+    {% endif %}
+
+    {% if messages %}
+    document.addEventListener("DOMContentLoaded", function() {
+        let messageList = "<ul>";
+        
+        {% for message in messages %}
+            {% if message.tags %}
+            let messageType = "{{ message.tags|stringformat:'s' }}";   // Get message type (success, error, etc.)
+            console.log(messageType)
+            let messageContent = "{{ message }}";    // Get the message content
+            console.log('messsage content'+messageContent)
+            // Try to parse the message as JSON
+            try {
+                let jsonMessage = JSON.parse(messageContent);
+                console.log("json type:"+jsonMessage)
+                messageList += "<li><strong>" + messageType + ":</strong> " + JSON.stringify(jsonMessage, null, 2) + "</li>";
+            } catch (e) {
+                // If not JSON, treat it as plain text
+                messageList += "<li><strong>" + messageType + ":</strong> " + messageContent + "</li>";
+            }
+            {% endif %}
+        {% endfor %}
+        
+        messageList += "</ul>";
+
+        // Define the icon based on the message type
+        let icon;
+        if (messageType == 'error') {
+            icon = 'error';
+        } else if (messageType == "success") {
+            icon = 'success';
+        } else if (messageType == "warning") {
+            icon = 'warning';
+        } else {
+            icon = 'info';  // Default to 'info' for other cases
+        }
+
+        // Display the Swal fire with appropriate icon and message
+        Swal.fire({
+            icon: icon,
+            title: messageType.charAt(0).toUpperCase() + messageType.slice(1) + "!",  // Capitalize message tag
+            html: messageList,  // Show errors as HTML list
+            confirmButtonText: 'OK',
+        });
+    });
+{% endif %}
+
+</script>

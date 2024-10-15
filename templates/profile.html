@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Your profile</title>
+
+   <!-- font awesome cdn link  -->
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+   <!-- custom css file link  -->
+   <link rel="stylesheet" href="{% static "css/style.css" %}">
+   <style>
+      .profile-pic-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px; /* Space below the image */
+      }
+      
+      .profile-pic-container img {
+          width: 100px; /* Adjust the size as needed */
+          height: 100px; /* Ensure the height matches the width for a circle */
+          object-fit: cover; /* Crop the image to fit the container */
+          border-radius: 50%; /* Makes the image round */
+          border: 2px solid #ddd; /* Optional: add a border */
+          box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1); /* Optional: add a shadow for better visibility */
+      }
+  </style>
+  
+</head>
+
+<body>
+
+{% include "header.html" %}
+
+<section class="form-container" style="min-height: calc(100vh - 19rem);">
+
+   <form action="{% url "profile" %}" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <h3>Manage profile</h3>
+      <div class="profile-pic-container">
+         {% if user_profile.profile_pic %}
+             <img src="{{ user_profile.profile_pic.url }}" alt="Profile Picture">
+         {% else %}
+             <img src="{% static 'images/male.png' %}" alt="Default Profile Picture">
+         {% endif %}
+     </div>
+      <div class="flex">
+          <div class="col">
+              <p>Update profile pic</p>
+              <input type="file" name="profile_pic" value="{{user_profile_form.profile_pic.value | default:''}}" accept="image/*" class="box">
+              <p>Firstname</p>
+              <input type="text" name="firstname" value="{{user_mini_form.firstname.value}}" class="box">
+              <p>Lastname</p>
+              <input type="text" name="lastname" value="{{user_mini_form.lastname.value}}" class="box">
+              <p>Username</p>
+              <input type="text" name="username" value="{{user_mini_form.username.value}}" class="box">
+          </div>
+          <div class="col">
+            <p><span style="font-size:18px;">Your email:</span> {{user.email}}</p><br>
+            <p><span style="font-size:18px;">Profile type: </span>{% if user.role == 1 %}Student{% else %}Tutor{% endif %}</p><br>
+            <p><span style="font-size:18px;">Total classroom {% if user.role == 1 %}joined{% else %}created{% endif %}: </span>{{classroom_count}}</p>
+            {% if messages %}
+              {% for message in messages %}
+              <p><span style="font-size:14px; color:red;">{{message}}</span></p><br>
+              {% endfor %}
+              {% endif %}
+         </div>
+      </div>
+      <input type="submit" name="submit" value="Update Profile" class="btn">
+  </form>
+
+</section>
+
+<!-- update profile section ends -->
+
+
+<!-- custom js file link  -->
+<script src="{% static "js/script.js" %}"></script>
+   
+</body>
+</html>

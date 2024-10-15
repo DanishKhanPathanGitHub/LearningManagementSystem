@@ -1,0 +1,109 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+
+<section class="tutor-dashboard">
+    <!-- Bottom Section -->
+    <a href="{% url "assignments" Class.id %}" class="specific-back-btn specific-btn-primary">
+        Back to Assignments <i class="fa fa-arrow-left"></i>
+    </a> <br><br>
+    <div class="dashboard-bottom-section">
+        <!-- Students Table -->
+        <div id="specific-assignment-container">
+            <!-- Assignment Details Card -->
+            <div id="specific-assignment-details-card">
+                <h2 class="specific-assignment-title">{{ assignment.name }}</h2>
+                <p class="specific-assignment-description"><strong>Description:</strong> {{ assignment.description }}</p>
+                
+                <div id="specific-assignment-meta">
+                    <p class="specific-meta-item">
+                        <strong>Due Date:</strong>  <span class="student-email utc-time" data-utc="{{ assignment.due_date|date:'Y-m-d\TH:i:s' }}" ></span>
+                    </p>
+                    {% if assignment.late_submission_allow %}
+                        <p class="specific-meta-item late-allowed"><strong>Late submission:</strong> Allowed</p>
+                    {% else %}
+                        <p class="specific-meta-item late-not-allowed"><strong>Late submission:</strong> Not Allowed</p>
+                    {% endif %}
+                </div>
+        
+                <!-- Display assignment file as a button -->
+                <a href="{{ assignment.assignment.url }}" id="specific-view-assignment-btn" class="specific-btn specific-btn-primary" target="_blank">View Assignment File</a>
+            </div>
+        
+            <!-- Assignment Submission Form and Status -->
+            <div id="specific-assignment-submission-card">
+                {% if submission_status and not approved_status %}
+                    <!-- Submission form and message for resubmission or waiting for approval -->
+                    <h3 id="specific-submission-title">Resubmit Your Assignment or Wait for Approval</h3>
+                    <p id="specific-submission-info">Your submission is under review. You can resubmit if needed.</p>
+                    <a href="{{ check.submitted_file.url }}" id="specific-view-submission-btn" class="specific-btn specific-btn-secondary" target="_blank">View Submitted Assignment</a>
+                    <form method="POST" enctype="multipart/form-data" id="specific-assignment-submission-form">
+                        {% csrf_token %}
+                        <div class="specific-form-group">
+                            {{ submission_form.submitted_file }}
+                        </div>
+                        {% if submission_form.submitted_file.errors %}
+                        <p class="late-not-allowed">{{submission_form.submitted_file.errors.0}}</p><br>
+                        {% endif %}
+                        <button type="submit" class="specific-btn specific-btn-warning">Resubmit Assignment</button>
+                    </form>
+        
+                {% elif submission_status and approved_status %}
+                    <!-- Message when assignment is submitted and approved -->
+                    <h3 id="specific-submission-title">Assignment Submitted</h3>
+                    <p id="specific-submission-info">Your assignment has been approved.</p>
+                    <a href="{{ check.submitted_file.url }}" class="specific-btn specific-btn-success" target="_blank">View Submitted Assignment</a>
+        
+                {% else %}
+                    <!-- Show form for initial submission -->
+                    <h3 id="specific-submission-title">Submit Your Assignment</h3>
+                    <form method="POST" enctype="multipart/form-data" id="specific-assignment-submission-form">
+                        {% csrf_token %}
+                        <div class="specific-form-group">
+                            {{ submission_form.submitted_file }}
+                        </div>
+                        {% if submission_form.submitted_file.errors %}
+                        <p class="late-not-allowed">{{submission_form.submitted_file.errors.0}}</p><br>
+                        {% endif %}
+                        <button type="submit" class="specific-btn specific-btn-primary">Submit Assignment</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+        
+  
+    </div>
+</section>
+<script>
+    // Display SweetAlert2 notifications based on Django messages
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'success' %}
+                    Swal.fire({
+                        icon: 'success',
+                        title: '{{ message }}',
+                    });
+                {% elif message.tags == 'warning' %}
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '{{ message }}',
+                    });
+                {% elif message.tags == 'error' %}
+                    Swal.fire({
+                        icon: 'error',
+                        title: '{{ message }}',
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if submission_form.submitted_file.errors %}
+            Swal.fire({
+                icon:'error',
+                title: '{{submission_form.submitted_file.errors.0}}'
+            });
+        {% endif %}
+    });
+</script>
+{% endblock content %}

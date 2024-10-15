@@ -1,0 +1,194 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+{% block content %}
+
+
+{% include "tutor/student_sidebar.html" %}
+<section class="lecture-content-area" id="lectureContentArea">
+    {% if student %}
+        <!-- Profile Section (adjustable for smaller screens) -->
+        <div>
+            <img src="{{ student.student.profile_pic.url }}" alt="Profile" class="w-52 h-48 mb-4 rounded-full">
+            <div>
+                <h2 class="text-3xl font-bold">{{ student.student.user.username }}</h2>
+                <p class="text-2xl text-gray-600">{{ student.student.user.email }}</p>
+                <form id="removeStudentForm" method="post" action="{% url "remove_student_from_class" Class.id student.student.id %}">
+                    {% csrf_token %}
+                <button id="removeStudentButton"
+                class="px-10 py-4 bg-red-600 text-2xl mt-4 mb-4 text-white rounded-md mr-2">
+                Remove from class</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lectures Section -->
+        <div id="LectureChartAndRecords" class="LectureSection">
+            <!-- Progress Chart: Lectures -->
+            <div class="LectureCompletionChart">
+                <h4 class="text-2xl font-bold mb-6 text-center">Lectures Completion</h4>
+                <div id="lecturesChart" class="w-full h-32"></div>
+            </div>
+
+            <!-- All Lectures (Scrollable) -->
+            <div class="LecturesRecord w-full">
+                <h4 class="text-3xl text-black">Lectures</h4>
+                <ul class="p-2">
+                    {% for lecture in lectures %}
+                    <li class=" mt-4 {% if lecture in completed_lectures_by_student %}bg-blue-200{% else %}bg-white{% endif %} p-4 rounded-lg shadow">
+                        {{ lecture.title }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Assignments Section -->
+        <div id="AssignmentChartAndRecords" class="AssignmentSection">
+            <!-- Progress Chart: Assignments -->
+            <div class="AssignmentCompletionChart">
+                 <h4 class="text-2xl font-bold text-center">Assignments Completion</h4>
+                <div id="assignmentsChart"></div>
+            </div>
+
+            <!-- All Assignments (Scrollable) -->
+            <div class="AssignmentsRecord w-full">
+                <h4 class="text-4xl font-bold mb-6">Assignments</h4>
+                {% if assignments %}
+                <ul class="p-2">
+                    {% for assignment in assignments %}
+                    <a href="{% url "tutorSpecificAssignment" Class.id assignment.id %}" class="mt-4">
+                        <li class="{% if assignment in approved_assignments %}bg-green-200 {% elif assignment in pending_approval_assignments %} bg-yellow-300{% else %}bg-white{% endif %} p-4 rounded-lg shadow">
+                        {{ assignment.name }}
+                    </li>
+                    </a><br>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                No Assignments in classroom
+                {% endif %}
+            </div>
+        </div>
+
+    
+    {% else %}
+
+    <h2 class="text-2xl font-semibold text-gray-600">Select a student to view details</h2>
+    {% endif %}
+    
+</section>
+
+<script>
+document.getElementById('removeStudentButton').addEventListener('click', function(event) {
+    event.preventDefault(); // Prevent form from submitting immediately
+
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "You want to remove this student?!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, remove it!',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Submit the form after showing the loading alert
+            document.getElementById('removeStudentForm').submit();
+        }
+    });
+});
+// Lectures Completion Chart
+var lecturesOptions = {
+    chart: {
+        type: 'radialBar'
+    },
+    series: [{{ completed_lectures_ratio }}], // Static value, can be dynamic later
+    labels: ['Completed'],
+    plotOptions: {
+        radialBar: {
+            hollow: {
+                size: '70%',
+            },
+            dataLabels: {
+                value: {
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#BFDBFE',
+                },
+            },
+        },
+    },
+    colors: ['#BFDBFE'], // Adjust color based on your design
+};
+
+var lecturesChart = new ApexCharts(document.querySelector("#lecturesChart"), lecturesOptions);
+lecturesChart.render();
+// Calculating the remaining ratio dynamically
+var approvedAssignments = {{ approved_assignments_ratio }};
+var pendingApproval = {{ pending_approval_ratio }};
+var remainingAssignments = 100 - (approvedAssignments + pendingApproval);
+
+// Assignments Completion Chart (Stacked Bar)
+var assignmentsOptions = {
+    chart: {
+        type: 'bar',
+        stacked: true,
+        height: 350,
+        toolbar: {
+            show: false
+        },
+    },
+    series: [
+        {
+            name: 'Approved',
+            data: [approvedAssignments]
+        },
+        {
+            name: 'Pending Approval',
+            data: [pendingApproval]
+        },
+        {
+            name: 'Remaining',
+            data: [remainingAssignments]
+        }
+    ],
+    xaxis: {
+        categories: ['Assignments']
+    },
+    yaxis: {
+        max: 100,
+        labels: {
+            formatter: function (value) {
+                return value + "%";
+            }
+        }
+    },
+    fill: {
+        opacity: 1
+    },
+    plotOptions: {
+        bar: {
+            horizontal: false,
+            borderRadius: 4,
+        },
+    },
+    colors: ['#bbf7d0', '#FF9800', '#D32F2F'], // Colors for Approved, Pending, Remaining
+    legend: {
+        position: 'top'
+    },
+    tooltip: {
+        y: {
+            formatter: function (val) {
+                return val + "%";
+            }
+        }
+    }
+};
+
+var assignmentsChart = new ApexCharts(document.querySelector("#assignmentsChart"), assignmentsOptions);
+assignmentsChart.render();
+
+
+
+</script>
+{% endblock %}

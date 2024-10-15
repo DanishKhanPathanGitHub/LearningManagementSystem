@@ -1,0 +1,179 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Classroom{% endblock %}</title>
+
+    <!-- Font Awesome CDN Link -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+    <!-- Custom CSS Files -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/classroom.css' %}">
+    <link rel="stylesheet" href="{% static 'css/lectures.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- Ensure jQuery is included -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.34/moment-timezone-with-data.min.js"></script>
+    
+    <style>
+        /* Custom Styles for Classroom Menu */
+        .nav-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            position: relative;
+            margin-top: 6rem; /* Ensure space for header */
+        }
+
+        .dropdown {
+            position: relative;
+            background-color: #333;
+            border-radius: 5px;
+        }
+
+        .dropdown-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px; /* Adjust font size as needed */
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow: hidden;
+            z-index: 1000; /* Ensure dropdown appears above other content */
+        }
+
+        .dropdown-content a {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #0056b3;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        @media (max-width: 800px) {
+            .dropdown-btn {
+                font-size: 18px; /* Adjust for smaller screens if needed */
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% include 'header.html' %}
+
+<!-- Classroom Menu -->
+<section class="quick-select">
+    <div class="nav-container">
+        <!-- Dropdown menu for navigation items -->
+        <div class="dropdown">
+            <div class="dropdown-btn" id="current-section">
+                <!-- Initial icon will be a dropdown -->
+                <span id="dropdown-text">
+                    {% if 'tutorClassroom/' in request.path %}
+                    Manage classroom
+                    {% elif 'classroom/' in request.path and 'assignments/' not in request.path and 'announcements/' not in request.path and 'lectures' not in request.path and 'studentCorner' not in request.path %}
+                    Classroom home
+                    {% elif 'assignments/' in request.path %}
+                    Assignments
+                    {% elif 'lectures' in request.path %}
+                    Lectures
+                    {% elif 'announcements/' in request.path %}
+                    Announcements
+                    {% elif 'studentCorner/' in request.path %}
+                    Student Corner
+                    {% endif %}
+                </span>
+                &nbsp;&nbsp;<i id="dropdown-icon" class="fas fa-caret-down"></i> <!-- Icon will toggle -->
+            </div>
+            <div class="dropdown-content" id="dropdown-content">
+                <span style="font-size:18px;">
+                {% if user.role == 2 %} 
+                <a href="{% url 'tutorClassroom' Class.id %}">Manage classroom</a>  
+                {% else %}
+                <a href="{% url 'classroom' Class.id %}">Classroom home</a>  
+                {% endif %}   
+                  
+                <a href="{% url 'assignments' Class.id %}">Assignments</a>
+                <a href="{% url 'lectures' Class.id %}">Lectures</a>
+                {% if user.role == 2 %}
+                <a href="{% url "studentCorner" Class.id %}">Student Corner</a>
+                {% endif %}
+                <a href="{% url 'announcements' Class.id %}">Announcements</a>
+                </span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Content Block for Child Templates -->
+<section class="content">
+    {% block content %}
+    <!-- Specific content will be inserted here by child templates -->
+    {% endblock %}
+</section>
+
+<!-- Custom JS File Link -->
+<script src="{% static 'js/script.js' %}"></script>
+
+<!-- JavaScript to handle the dropdown icon toggle -->
+<script>
+    $(document).ready(function() {
+        let dropdownOpen = false; // Initialize a flag to track dropdown state
+
+        $('#current-section').on('click', function() {
+            dropdownOpen = !dropdownOpen; // Toggle the state
+
+            if (dropdownOpen) {
+                // If dropdown is open, show the content and change the icon
+                $('#dropdown-content').show();
+                $('#dropdown-icon').removeClass('fa-caret-down').addClass('fa-times');
+            } else {
+                // If dropdown is closed, hide the content and change the icon
+                $('#dropdown-content').hide();
+                $('#dropdown-icon').removeClass('fa-times').addClass('fa-caret-down');
+            }
+        });
+
+        // Optional: Close dropdown if clicking outside of it
+        $(document).on('click', function(event) {
+            if (!$(event.target).closest('#current-section').length && dropdownOpen) {
+                dropdownOpen = false; // Reset flag
+                $('#dropdown-content').hide(); // Hide the dropdown
+                $('#dropdown-icon').removeClass('fa-times').addClass('fa-caret-down'); // Reset icon
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

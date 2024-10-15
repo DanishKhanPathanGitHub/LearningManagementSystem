@@ -1,0 +1,196 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="tutor-dashboard">
+    <!-- Bottom Section -->
+    <div class="dashboard-bottom-section">
+        <!-- Students Table -->
+        <div class="dashboard-table-container">
+            <h2 class="table-title">
+                <span style="font-size:25px; color:blue;">Assignments</span>
+                <!-- Filter Dropdown -->
+                <br><br>
+                <select id="filter-dropdown" class="filter-dropdown form-control" onchange="filterAssignments()">
+                    <option value="">Latest</option>
+                    {% if user.role == 1 %}
+                    <option value="pending_submissions">Pending Submissions</option>
+                    <option value="pending_approvals">Pending Approvals</option>
+                    <option value="approved">Approved</option>
+                    <option value="missed">Missed</option>
+                    {% else %}
+                    <option value="due_date_passed">Due date passed</option>
+                    <option value="active">Active</option>
+                    {% endif %}
+                    <option value="2_days">Due 2 Days</option>
+                    <option value="this_week">Due This week</option>
+                    <option value="next_10_days">Due Next 10 days</option>
+                    <option value="this_month">Due This month</option>
+                </select>
+                <br><br>
+            </h2>
+            {% if user.role == 2 %}
+            <button class="view-profile-button text-2xl px-10 py-6" id="add-announcement-button">Add New assignments</button><br><br>
+            {% endif %}
+            <div class="students-table">
+                <!-- Form Card -->
+                <div class="announcement-form-card" id="announcement-form-card" style="display: none;">
+                    <div class="announcement-card-header">
+                        <button type="button" class="close-button" id="cancel-add-announcement">&times;</button>
+                    </div>
+                    <div class="announcement-card-body">
+                        <form id="assignment-form" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="title">Name*</label>
+                                <input type="text" id="title" name="name" value="{{ assignment_form.name.value | default:'' }}" placeholder="Enter title of assignment" class="form-control text-2xl">
+                            </div>
+                            <div class="form-group">
+                                <label for="content">Description</label>
+                                <textarea id="content" name="description" placeholder="Enter description of assignment" class="form-control text-2xl">{{ assignmentt_form.description.value | default:'' }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="file">Attach assignment</label>
+                                <input type="file" id="file" name="assignment" accept="file/*" class="form-control">
+                            </div>
+                            <div class="date-picker-wrapper">
+                                <span style="font-size:14px;">Due Date| Must be 1 day ahead of current time*</span><br>
+                                <input type="datetime-local" id="due_date" name="due_date" class="form-control custom-date-picker">
+                            </div>
+                            </div>
+                            <div class="None">
+                              <label><span style="font-size:14px;">Allow Late Submission</span></label><br>
+                              <input type="checkbox" id="allow_late_submission" name="late_submission_allow" {% if assignment_form.late_submission_allow.value %}checked{% endif %} class="form-checkbox">
+                          </div>
+                          <br>
+                            <div class="form-buttons">
+                                <button type="submit" class="announcement-submit-form-button px-12 py-6 text-3xl">Add</button>
+                            </div>
+                            <br><br>
+                        </form>
+                    </div>
+                </div>
+            
+                <!-- Sample Table Data -->
+                {% if assignments %}
+                {% for assignment in assignments %}
+                <div class="student-table-row" id="announcement-{{ assignment.id }}">
+                    <div class="col-student-table-row-columns-name">
+                    <p class="student-name">{{assignment.name}}</p>&nbsp;&nbsp;
+                    </div>
+                    <div class="col-student-table-row-columns-view button">
+                    {% if user.role == 1 %}
+                    <a href="{% url "SpecificAssignment" Class.id assignment.id %}"><button class="view-profile-button">
+                    {% else %}
+                    <a href="{% url "tutorSpecificAssignment" Class.id assignment.id %}"><button class="view-profile-button">
+                    {% endif %}
+                        <i class="fa fa-eye"></i><span class="text-2xl px-3 py-2"> View</span>
+                    </button></a>
+                    </div>
+                    
+                </div>
+                <br>
+                
+                {% endfor %}
+                {% else %}
+                <p class="requester-name">No Assignments</p>
+                {% endif %}
+            </div>
+            
+        </div>
+  
+    </div>
+</section>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the current filter from the URL
+        const queryParams = new URLSearchParams(window.location.search);
+        const filterValue = queryParams.get('filter');
+    
+        // Set the selected option in the dropdown based on the filter value
+        if (filterValue) {
+            const filterDropdown = document.getElementById('filter-dropdown');
+            filterDropdown.value = filterValue;
+        }
+    });
+    function filterAssignments() {
+        const filterValue = document.getElementById('filter-dropdown').value;
+        const queryString = filterValue ? `?filter=${filterValue}` : '';
+        window.location.href = window.location.pathname + queryString;
+    }
+
+    $(document).ready(function() {
+
+        // Show the form when "Add Announcement" button is clicked
+        $('#add-announcement-button').click(function() {
+            $('#announcement-form-card').show(); // Show the form card
+        });
+    
+        // Hide the form when "Cancel" button is clicked
+        $('#cancel-add-announcement').click(function() {
+            $('#announcement-form-card').hide(); // Hide the form card
+        });
+    
+        // Handle form submission via AJAX
+        $('#assignment-form').submit(function(event) {
+            event.preventDefault(); // Prevent the default form submission
+    
+            // Prepare form data without any date manipulation
+            var formData = new FormData(this);
+            var dueDateInput = $('#due_date').val();
+            var localDate = new Date(dueDateInput);
+                // Convert to UTC and get the ISO string
+            var utcDate = localDate.toISOString();
+                // Append the UTC date to the form data
+            formData.append('due_date', utcDate);
+    
+            // Proceed with the AJAX request
+            $.ajax({
+                url: "{% url 'assignments_add' id=Class.id %}", // Ensure this URL is correct
+                type: 'POST',
+                data: formData,
+                contentType: false, // Let jQuery set content type
+                processData: false, // Do not process data
+                success: function(response) {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            title: 'The assignment has been added.',
+                            icon: 'success'
+                        }).then(() => {
+                            location.reload(); // Reload the page after the alert is closed
+                        });
+                    } else {
+                        let errorMessages = [];
+                        for (const [field, errors] of Object.entries(response.errors)) {
+                            errors.forEach(error => {
+                                errorMessages.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error}`);
+                            });
+                        }
+                        const errorMessage = errorMessages.join('<br>');
+                        
+                        // Show errors in SweetAlert2
+                        Swal.fire({
+                            title: 'Error!',
+                            html: errorMessage, // Use HTML to display each error on a new line
+                            icon: 'error'
+                        });
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    console.error(xhr.responseText);
+                    Swal.fire(
+                        'Error!',
+                        'An error occurred: ' + xhr.responseText,
+                        'error'
+                    );
+                }
+            });
+        });
+    
+    });
+    
+    
+    
+    
+</script>
+{% endblock content %}

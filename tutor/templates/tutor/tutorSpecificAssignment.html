@@ -1,0 +1,443 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+{% for message in messages %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+<span style="color:red; font-size:14px;">{{ message }}</span>
+</div>
+{% endfor %}
+<section class="tutor-dashboard">
+    <!-- Top Section -->
+    <a href="{% url "assignments" Class.id %}" class="specific-back-btn specific-btn-primary">
+        Back to Assignments <i class="fa fa-arrow-left"></i>
+    </a><br><br>
+        <div class="dashboard-top-section" id="specific-assignment-container">
+            <!-- Left Card -->
+            
+            <div class="dashboard-class" id="specific-assignment-details-card">
+                <form id="assignment-form">
+                    {% csrf_token %}
+                <div class="class-info-header">
+                    <span class="class-name" style="font-size:18px; font-weight:bold;">{{assignment.name}}</span><br><br>
+                    <p> <span style="fon t-size:16px; color:red;">uploaded at:</span><span class="class-date-created utc-time" data-utc="{{assignment.assigned_date|date:'Y-m-d\TH:i:s'}}" ></span></p><br>
+                    <p> <span style="font-size:16px; color:red;">Due date:</span><span class="class-date-created utc-time" data-utc="{{assignment.due_date|date:'Y-m-d\TH:i:s'}}"></span></p><br>
+                    <span style="font-size:16px; color:red;">Change</span><br>
+                    <span style="font-size:14px;">Must not be behind current time*</span><br>
+                    <div class="date-picker-wrapper">
+                        <input type="datetime-local" id="due_date" name="due_date" class="form-control custom-date-picker">
+                    </div>
+                    <p> <span style="font-size:16px; color:red;">Late submission:</span><span style="font-size:14px;"><br>
+                    <input type="checkbox" id="allow_late_submission" name="late_submission_allow" {% if assignment_form.late_submission_allow.value %}checked{% endif %} class="form-checkbox">
+                        <br>
+                        <div class="form-buttons">
+                            <button type="submit" class="announcement-submit-form-button">Update</button>
+                        </div>
+                        <br>
+                    <span class="class-name" style="font-size:12px;">{{assignment.description}}</span><br><br>
+                       
+                </div> 
+            </div>
+            
+            </form>
+
+            <!-- Right Card -->
+            <div class="dashboard-description" id="specific-assignment-submission-card">
+                    <h4 class="table-title">Students with Approoved submission</h4><br>
+                    <div class="requests-table">
+                        {% if approved_submission %}
+                        {% for submission in approved_submission %}
+                        <div class="student-table-row">
+                            <div class="col-student-table-row-columns-name">
+                                <p class="student-name">{{submission.student.user.username}}</p>
+                            </div>
+                            <div class="col-student-table-row-columns-view">
+                                <button class="view-profile-button" onclick="toggleSubmissionDetail('{{ submission.id }}', this)">
+                                    <i class="fa fa-eye" aria-hidden="true"></i><span> View</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="submission-detail" id="submission-detail-{{ submission.id }}" style="display:none;">
+                            {% if submission.student.profile_pic %}
+                                <img src="{{ submission.student.profile_pic.url }}" class="student-profile-photo" alt="Profile Photo">
+                            {% else %}
+                                <img src="{% static 'images/male.png' %}" class="student-profile-photo" alt="Profile Photo">
+                            {% endif %}
+                            <br>
+                            <p><span style="font-size:20px;">{{ submission.student.user.username }}</span></p>
+                            <p><span style="font-size:12px;">{{ submission.student.user.email }}</span></p><br>
+                            <a href="{{ submission.submitted_file.url }}" class="specific-btn specific-btn-success" target="_blank">View Submitted file</a>
+                            <br>
+                            <p>
+                                <span style="font-size:12px;">Uploaded on: {{submission.upload_date}} <br>
+                                   <span style="color:red; font-size:13px;"> {% if submission.late_submission %}
+                                    Late submission {% else %}Before due date {% endif %}</span>
+                               </span>
+                            </p><br>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="requester-name">No students with Approoved submission</p>
+                        {% endif %}
+                    </div>
+                
+            </div>
+        </div>
+        <form id="deleteForm" method="post" action="{% url 'SpecificAssignment_delete' Class.id assignment.id %}"  onsubmit="return confirmDelete()">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" id="deleteButton">Delete Assignment</button>
+        </form> 
+        <br><br>
+    <!-- Bottom Section -->
+    <div class="dashboard-bottom-section" id="specific-assignment-container">
+        <!-- Students Table -->
+
+        <!-- Requests Table -->
+            <div id="specific-assignment-details-card">
+                <h4 class="table-title" style="font-size:16px;">Students Submissions: pending approvals </h4><br>
+                <div class="requests-table">
+                    {% if pending_approval %}
+                    {% for submission in pending_approval %}
+                    <div class="student-table-row" id="submission-{{ submission.id }}">
+                        <div class="col-student-table-row-columns-name">
+                            <p class="student-name">{{submission.student.user.username}}</p>
+                        </div>
+                        <div class="col-student-table-row-columns-view">
+                            <button class="view-profile-button" onclick="toggleSubmissionDetail('{{ submission.id }}', this)">
+                                <i class="fa fa-eye" aria-hidden="true"></i><span> View</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="submission-detail" id="submission-detail-{{ submission.id }}" style="display:none;">
+                        {% if submission.student.profile_pic %}
+                            <img src="{{ submission.student.profile_pic.url }}" class="student-profile-photo" alt="Profile Photo">
+                        {% else %}
+                            <img src="{% static 'images/male.png' %}" class="student-profile-photo" alt="Profile Photo">
+                        {% endif %}
+                        <br>
+                        <p><span style="font-size:20px;">{{ submission.student.user.username }}</span></p>
+                        <p><span style="font-size:12px;">{{ submission.student.user.email }}</span></p><br>
+                        <a href="{{ submission.submitted_file.url }}" class="specific-btn specific-btn-success" target="_blank">View Submitted file</a>
+                        <br>
+                        <p>
+                            <span style="font-size:12px;">Uploaded on: {{submission.upload_date}} <br>
+                               <span style="color:red; font-size:13px;"> {% if submission.late_submission %}
+                                Late submission {% else %}Before due date {% endif %}</span>
+                           </span>
+                        </p><br>
+                        <div class="row">
+                            <button type="button" class="approve-button" data-submission-id="{{ submission.id }}">approve</button>&nbsp;&nbsp;&nbsp;
+                            <button type="button" class="reject-button" data-submission-id="{{ submission.id }}">reject</button>
+                        </div>
+                    </div>
+                
+                    {% endfor %}
+                    {% else %}
+                    <p class="requester-name">No students with pending approvals</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div id="specific-assignment-submission-card">
+                <div class="students-table">
+                    <!-- Form Card -->
+                    <h4 class="table-title" style="font-size:16px;">Students Submissions: pending submissions</h4>
+                    <button id="notify-all-btn" class="btn btn-success">
+                        <i class="fa fa-bell"></i>&nbsp;<span>Notify All</span>
+                    </button>
+            
+                    <!-- CSRF Token -->
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+                    {% if students_with_pending_submission %}
+                        {% for student in students_with_pending_submission %}
+                            <div class="student-table-row">
+                                <div class="col-student-table-row-columns-name">
+                                    <p class="student-name">{{student.user.username}}</p>&nbsp;&nbsp;
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="requester-name">No students with pending submission</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+    </div>      
+         
+    </div>
+</section>
+<script>
+    
+    document.getElementById('notify-all-btn').addEventListener('click', function() {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        
+        // Instant feedback: Let the user know notifications are being sent
+        Swal.fire({
+            icon: 'info',
+            title: 'Processing...',
+            text: 'Notifications are being sent. Please wait.',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000
+        });
+    
+        // Show a non-blocking spinner/status message in the corner
+        const spinner = document.createElement('div');
+        spinner.innerHTML = `
+            <div id="notify-spinner" style="position:fixed; bottom:10px; right:10px; z-index:9999;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Sending notifications...</span>
+                </div>
+                <span>Sending notifications...</span>
+            </div>
+        `;
+        document.body.appendChild(spinner);
+    
+        // Make the background request to notify all students
+        fetch(`/tutor/notify_all/{{ Class.id }}/{{ assignment.id }}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ message: 'Send notifications' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove the spinner once the task completes
+            const spinnerElement = document.getElementById('notify-spinner');
+            if (spinnerElement) {
+                spinnerElement.remove();
+            }
+    
+            // Notify the user of the result with a non-blocking toast or modal
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: data.message,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Failed',
+                    text: data.message,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const spinnerElement = document.getElementById('notify-spinner');
+            if (spinnerElement) {
+                spinnerElement.remove();
+            }
+    
+            // Show error notification
+            Swal.fire({
+                icon: 'error',
+                title: 'Unexpected Error',
+                text: 'An error occurred while sending notifications.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        });
+    });
+    
+    
+    
+    
+    
+    
+    function confirmDelete() {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This assignment will be permanently deleted!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'No, cancel!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // If confirmed, submit the form
+                document.getElementById('deleteForm').submit();
+            } else {
+                // If canceled, do nothing
+                return false;
+            }
+        });
+        // Prevent form submission until confirmation is received
+        return false;
+    }
+    function toggleSubmissionDetail(id, button) {
+        var detailElement = document.getElementById('submission-detail-' + id);
+        var icon = button.querySelector('i'); // Get the icon element
+        var text = button.querySelector('span'); // Get the text element
+        
+        if (detailElement.style.display === 'none' || detailElement.style.display === '') {
+            detailElement.style.display = 'block';
+            icon.classList.remove('fa-eye'); // Remove eye icon
+            icon.classList.add('fa-times'); // Add times icon (close)
+            text.innerHTML = ' Close'; // Update text to Close
+        } else {
+            detailElement.style.display = 'none';
+            icon.classList.remove('fa-times'); // Remove times icon
+            icon.classList.add('fa-eye'); // Add eye icon
+            text.innerHTML = ' View'; // Update text to View
+        }
+    }
+    $(document).ready(function() {
+        $('.approve-button, .reject-button').click(function(event) {
+            event.preventDefault();
+            var button = $(this);
+            var submissionId = button.data('submission-id');
+            var action = button.hasClass('approve-button') ? 'approve' : 'reject';
+            
+            $.ajax({
+                url: "{% url 'tutorSpecificAssignment' id=Class.id asid=assignment.id %}",  // Ensure this URL is correct
+                type: 'GET',
+                data: {
+                    'submission_id': submissionId,
+                    'action': action,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        // Remove the corresponding student request row
+                        $('#submission-' + submissionId).remove();
+                        $('#submission-detail-' + submissionId).remove(); // Remove the detail card as well
+                
+                        if (action === 'approve') {
+                            const submission = response.submission
+                            const approvedRow = `
+                            <div class="student-table-row">
+                                <div class="col-student-table-row-columns-name">
+                                    <p class="student-name">${submission.student.user.username}</p>
+                                </div>
+                                <div class="col-student-table-row-columns-view">
+                                    <button class="view-profile-button" onclick="toggleSubmissionDetail('${submission.id}', this)">
+                                        <i class="fa fa-eye" aria-hidden="true"></i><span> View</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="submission-detail" id="submission-detail-${submission.id}" style="display:none;">
+                                ${submission.student.profile_pic ? `
+                                    <img src="${submission.student.profile_pic}" class="student-profile-photo" alt="Profile Photo">
+                                ` : `
+                                    <img src="{% static 'images/male.png' %}" class="student-profile-photo" alt="Profile Photo">
+                                `}
+                                <br>
+                                <p><span style="font-size:20px;">${submission.student.user.username}</span></p>
+                                <p><span style="font-size:12px;">${submission.student.user.email}</span></p><br>
+                                <a href="${submission.submitted_file.url}" class="specific-btn specific-btn-success" target="_blank">View Submitted file</a>
+                                <br>
+                                <p>
+                                    <span style="font-size:12px;">Uploaded on: ${submission.upload_date}<br>
+                                    <span style="color:red; font-size:13px;">${submission.late_submission ? 'Late submission' : 'Before due date'}</span>
+                                    </span>
+                                </p><br>
+                            </div>
+                        `;
+                            $('.dashboard-description .requests-table').append(approvedRow);
+                            
+                            $('#notification-message').text(`Submission approved for ${response.username}`);
+                            $('#notification').fadeIn();
+                
+                            // Hide the notification after 1.5 seconds
+                            setTimeout(() => {
+                                $('#notification').fadeOut();
+                            }, 1500);
+                        } else {
+                            // Add to the pending submissions section
+                            const pendingRow = `
+                                <div class="student-table-row">
+                                    <div class="col-student-table-row-columns-name">
+                                        <p class="student-name">${response.username}</p>&nbsp;&nbsp;
+                                    </div>
+                                </div>
+                            `;
+                            $('.students-table').append(pendingRow); // Append to the pending submissions section
+                        }
+                    } else {
+                        alert(response.message);
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    alert('An error occurred: ' + errorThrown);
+                }
+            });
+        });
+    });
+    $(document).ready(function() {
+        $('#assignment-form').submit(function(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Prepare form data without any date manipulation
+            var formData = new FormData(this);
+            var dueDateInput = $('#due_date').val();
+            if (dueDateInput){
+                var localDate = new Date(dueDateInput);
+                    // Convert to UTC and get the ISO string
+                var utcDate = localDate.toISOString();
+                    // Append the UTC date to the form data
+                formData.append('due_date', utcDate);
+            }
+
+            // Proceed with the AJAX request
+            $.ajax({
+                url: "{% url 'tutorSpecificAssignment' id=Class.id asid=assignment.id %}", // Ensure this URL is correct
+                type: 'POST',
+                data: formData,
+                contentType: false, // Let jQuery set content type
+                processData: false, // Do not process data
+                success: function(response) {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            title: 'The assignment has been Updated',
+                            icon: 'success'
+                        }).then(() => {
+                            location.reload(); // Reload the page after the alert is closed
+                        });
+                    } else {
+                        let errorMessages = [];
+                        for (const [field, errors] of Object.entries(response.errors)) {
+                            errors.forEach(error => {
+                                errorMessages.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error}`);
+                            });
+                        }
+                        const errorMessage = errorMessages.join('<br>');
+                        
+                        // Show errors in SweetAlert2
+                        Swal.fire({
+                            title: 'Error!',
+                            html: errorMessage, // Use HTML to display each error on a new line
+                            icon: 'error'
+                        });
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    console.error(xhr.responseText);
+                    Swal.fire(
+                        'Error!',
+                        'An error occurred: ' + xhr.responseText,
+                        'error'
+                    );
+                }
+            });
+        });
+    });
+</script>
+{% endblock content %}

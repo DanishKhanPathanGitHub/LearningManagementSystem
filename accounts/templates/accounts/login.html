@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>home</title>
+   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+   <!-- font awesome cdn link  -->
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+   <!-- custom css file link  -->
+   <link rel="stylesheet" href="{% static "css/style.css" %}">
+
+</head>
+<body>
+
+{% include "header.html" %}
+
+<section class="form-container">
+
+   <form action="{% url "login" %}" method="post" enctype="multipart/form-data" class="login">
+      {% csrf_token %}
+      <h3>welcome back!</h3>
+      <p>your email <span>*</span></p>
+      <input type="email" name="email" placeholder="enter your email" maxlength="50" required class="box">
+      <p>your password <span>*</span></p>
+      <input type="password" name="password" placeholder="enter your password" maxlength="20" required class="box">
+      {% for message in messages %}
+         <div class="alert alert-warning alert-dismissible fade show" role="alert">
+         {% if message.tags == success %}
+         {% else %}
+            <span style="color:red; font-size:14px;">{{ message }}</span>
+         {% endif %}
+      {% endfor %}
+      <p class="link">don't have an account? <a href="{% url "registerUser" %}">register now</a></p>
+      <p class="link">Forgot password?<a href="{% url "forgot_password" %}">Reset</a></p>
+      <input type="submit" name="submit" value="login" class="btn">
+   </form>
+
+</section>
+
+<!-- custom js file link  -->
+<script src="{% static 'js/script.js' %}"></script>
+<script>
+   document.addEventListener('DOMContentLoaded', function() {
+       {% if messages %}
+           {% for message in messages %}
+               {% if message.tags == 'success' %}
+                   Swal.fire({
+                       title: 'Success!',
+                       text: "{{ message }}",
+                       icon: 'success',
+                       confirmButtonText: 'OK',
+                       confirmButtonColor: '#3085d6'
+                   });
+               {% endif %}
+           {% endfor %}
+       {% endif %}
+   });
+</script>
+
+</body>
+</html>

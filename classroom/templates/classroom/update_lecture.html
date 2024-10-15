@@ -1,0 +1,165 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Sidebar for Sections -->
+{% include "classroom/lecture_sidebar.html" %}
+<!-- Main Content Area for Lecture -->
+
+<section class="lecture-content-area" id="lectureContentArea">
+<a href="{% url 'lectures' Class.id %}" class="bg-gray-500 hover:bg-gray-600 text-white text-3xl font-bold py-4 px-8 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+    <i class="fa fa-arrow-left"></i>&nbsp;Back to lectures
+</a>
+<br>
+<div class="max-w-full mx-auto p-6 bg-white shadow-md rounded-lg mt-8">
+    <h2 class="text-4xl font-extrabold text-gray-800 mb-6">Update Lecture: {{lecture.title}}</h2>
+    
+    <h6 class="text-2xl font-bold text-gray-800 mb-6">You can add lecture as Notes or upload the video or both. But you have to add atleast one of them</h6>
+    <form action="{% url "update_lecture" Class.id lecture.slug %}" method="post" enctype="multipart/form-data" class="space-y-6">
+
+        {% csrf_token %}
+        <div class="lecture-section-select">
+        <p class="text-2xl font-bold text-red-600">Revise and confirm the order of sections and video before changing</p>
+        {{lecture_form.section}}
+        </div>
+
+         <!-- Order Select (Container for Dynamically Generated Order Field) -->
+         <div class="lecture-order-select" id="orderFieldContainer">
+            <span style="color:red; font-size:12px;">{{lecture_form.order.label}} </span><br>
+            <!-- Initially, create the order field with the current value -->
+            <select id="id_order" name="order">
+                {% for lect in curr_lectures %}
+                    <option value="{{ lect.order }}" {% if lect.order == lecture_form.order.value %}selected{% endif %}>{{ lect.order }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="title" class="block text-2xl font-medium text-gray-700">Title</label>
+            <input id="title" name="title" value="{{lecture_form.title.value}}" type="text" class="mt-1 p-4 block text-3xl text-bold w-full h-20 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+
+        <!-- TinyMCE Content -->
+        <div class="content-editor">
+            <label for="content" class="block text-2xl font-medium text-gray-700">Notes</label>
+            {{lecture_form.content}}
+        </div>
+
+        <!-- Attachment Upload -->
+        <div>
+            <label for="attachment" class="block text-2xl mt-6 font-medium text-gray-700">Attachment (Optional)</label>
+            {% if lecture_form.attachment.value %}
+            <a class="btn btn-primary bg-yellow-500 py-4 text-2xl mt-2 mb-3" href="{{lecture_form.attachment.value.url}}">current attachment</a>
+            {% else %}
+            <button type="button" class="btn btn-primary bg-red-500 px-6 py-4 text-2xl text-white mt-2 mb-3">No attachment</button>
+            {% endif %}
+            <input id="attachment" name="attachment" value="{{lecture_form.attachment.value}}" type="file" class="block w-full text-2xl mb-8 text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-2xl file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            
+        </div>
+
+        <!-- Video Upload -->
+        <div>
+            <label for="video" class="block text-2xl mt-6 font-medium text-gray-700">Video (Optional)</label>
+            {% if lecture_form.video.value %}
+            <a class="btn btn-primary bg-yellow-500 py-4 text-2xl mb-3" href="{{lecture_form.video.value.url}}">current video</a>
+            {% else %}
+            <button type="button" class="btn btn-primary bg-red-500 px-6 py-4 text-2xl text-white mt-2 mb-3">No video</button>
+            {% endif %}
+            <input id="video" name="video" type="file" value="{{lecture_form.video.value}}" class="block w-full text-2xl mb-12 text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-2xl file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex justify-between">
+            <button type="submit" class="update-save-changes-button bg-blue-500 hover:bg-blue-600 text-white text-3xl font-bold py-6 px-10 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Save the changes
+            </button>
+
+            <a href="{% url 'lectures' Class.id %}" class="update-cancel-button bg-gray-500 hover:bg-gray-600 text-white text-3xl font-bold py-6 px-10 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+</section>
+<!-- TinyMCE Script -->
+<script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+<script>
+    tinymce.init({
+        selector: 'textarea',
+        plugins: 'advlist autolink link image lists charmap preview',
+        toolbar: 'h1 h3 |undo redo | formatselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent |',
+        height: 500,  // Fixed height
+        max_height: 500,
+        menubar: false,
+        branding: false,
+    });
+    
+    document.addEventListener("DOMContentLoaded", function() {
+        const sectionField = document.querySelector('#id_section');  // Ensure id_section is correct
+        const orderFieldContainer = document.querySelector('#orderFieldContainer');  // Create a container for the order field
+
+        // Event listener for section change
+        sectionField.addEventListener('change', function() {
+            const sectionId = this.value;
+
+            // Clear any previous order field and show loading indicator
+            orderFieldContainer.innerHTML = '<select id="id_order"><option>Loading...</option></select>';
+
+            if (sectionId) {
+                fetch(`/ajax/get_order_choices/{{ lecture.section.id }}/${sectionId}/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'  // Ensure the request is identified as AJAX
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Clear any previous content in the order field container
+                    orderFieldContainer.innerHTML = '';
+
+                    // If choices are available, create a new select dropdown with options
+                    if (data.choices && data.choices.length > 0) {
+                        let orderField = document.createElement('select');
+                        orderField.id = 'id_order';  // Set the ID for the order field
+                        orderField.name = 'order';   // Ensure the name is set correctly for form submission
+
+                        // Populate the options dynamically
+                        data.choices.forEach(function(choice) {
+                            let option = document.createElement('option');
+                            option.value = choice[0];
+                            option.text = choice[1];
+
+                            // If the current order value matches, mark it as selected
+                            if (choice[0] == '{{lecture_form.order.value}}') {
+                                option.selected = true;
+                            }
+                            orderField.appendChild(option);
+                        });
+
+                        // Append the newly created select element to the container
+                        orderFieldContainer.appendChild(orderField);
+                    } else {
+                        let option = document.createElement('option');
+                        option.value = '';
+                        option.text = 'No orders available';
+                        let orderField = document.createElement('select');
+                        orderField.id = 'id_order'; 
+                        orderField.name = 'order';
+                        orderField.appendChild(option);
+                        orderFieldContainer.appendChild(orderField);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching order choices:', error);
+                    orderFieldContainer.innerHTML = '<select><option>Error loading choices</option></select>';
+                });
+            }
+        });
+    });
+    
+</script>
+
+</script>
+
+
+{% endblock content %}

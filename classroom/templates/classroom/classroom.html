@@ -1,0 +1,62 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+{% for message in messages %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+<span style="color:red; font-size:14px;">{{ message }}</span>
+</div>
+{% endfor %}
+<section class="tutor-dashboard">
+    <!-- Top Section -->
+
+        <div class="dashboard-top-section" id="specific-assignment-container">
+            <!-- Left Card -->
+            <div class="dashboard-class-info" id="specific-assignment-details-card">
+                <div class="class-info-header">
+                    <img src="{{ Class.cover_pic.url }}" alt="Class Cover Photo" class="class-cover-photo">
+                    <br>
+                    <h2 class="class-title text-4xl font-extrabold">{{ Class.name }}</h2>
+                    <p class="text-xl">Created at: </p>
+                    <p class="class-date-created text-2xl utc-time" data-utc="{{Class.created_at|date:'Y-m-d\TH:i:s'}}"data-format="date-only"></p>
+                    <br>
+                    <p class="class-total-students text-2xl font-semibold">Total Students: {{Class.students.count}}</p>
+                </div>
+            </div>      
+
+            <!-- Right Card -->
+            <div class="dashboard-description-card" id="specific-assignment-submission-card">
+                    <h2 class="description-title"> Description</h2>
+                    {{Class.description | safe}}
+            </div>
+            
+        </div>
+        <form id="deleteForm" method="post" action="{% url 'classroomExit' Class.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" id="dxitButton">Exit classroom <i class="fa fa-sign-out"></i></button>
+        </form> 
+  
+</section>
+<script>
+    document.getElementById('dxitButton').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent form from submitting immediately
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Submit the form after showing the loading alert
+                document.getElementById('deleteForm').submit();
+            }
+        });
+    });
+
+</script>
+{% endblock content %}

@@ -1,0 +1,43 @@
+<section class="lecture-sidebar">
+    <!-- Search bar -->
+    <div class="mb-4 sticky top-0 bg-gray-100 p-2 z-10">
+        <input type="text" id="studentSearch" placeholder="Search student by name" class="w-full p-3 border text-2xl text-black border-gray-300 rounded-lg" onkeyup="searchStudent()">
+    </div>
+
+    <!-- Students List -->
+    <div id="studentList">
+    {% if students %}
+            {% for student in students %}
+            <li>
+                <a href="{% url 'studentCorner' Class.id student.id %}" class="block p-2 bg-white hover:bg-blue-50 rounded-lg shadow">
+                    <div class="flex items-center space-x-4">
+                        <img src="{{ student.student.profile_pic.url }}" alt="Profile" class="w-16 h-16 rounded-full">
+                        <span class="text-2xl text-black font-semibold">{{ student.student.user.username }}</span>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+    {% else %}
+        </div>
+    <div class="text-gray-600">
+        No students found in this classroom.
+    </div>
+    {% endif %}
+</section>
+
+<script>
+    // Function to filter students by name
+    function searchStudent() {
+        const input = document.getElementById('studentSearch').value.toLowerCase();
+        const students = document.querySelectorAll('#studentList li');
+
+        students.forEach(student => {
+            const studentName = student.textContent.toLowerCase();
+            if (studentName.includes(input)) {
+                student.style.display = '';
+            } else {
+                student.style.display = 'none';
+            }
+        });
+    }
+</script>

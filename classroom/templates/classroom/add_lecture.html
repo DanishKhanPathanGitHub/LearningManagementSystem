@@ -1,0 +1,79 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Sidebar for Sections -->
+{% include "classroom/lecture_sidebar.html" %}
+<!-- Main Content Area for Lecture -->
+
+<section class="lecture-content-area" id="lectureContentArea">
+    
+<a href="{% url 'lectures' Class.id %}" class="bg-gray-500 hover:bg-gray-600 text-white text-3xl font-bold py-4 px-8 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+    <i class="fa fa-arrow-left"></i>&nbsp;Back to lectures
+</a>
+<br>
+<div class="max-w-full mx-auto p-6 bg-white shadow-md rounded-lg mt-8">
+    <h2 class="text-4xl font-extrabold text-gray-800 mb-6">Add Lecture to {{section.title}}</h2>
+    <h6 class="text-2xl font-bold text-gray-800 mb-6">You can add lecture as Notes or upload the video or both. But you have to add atleast one of them</h6>
+    <form method="POST" action="{% url "add_lecture" Class.id section.id %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <!-- Lecture Order -->
+        <div class="lecture-order-select">
+        <span style="color:red; font-size:12px;">{{lecture_form.order.label}} </span><br>
+        {{ lecture_form.order }}
+        </div>
+        <div>
+            <label for="title" class="block text-2xl font-bold text-gray-700">Title</label>
+            <input id="title" name="title" type="text" class="mt-1 p-4 block text-3xl text-bold w-full h-20 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+
+        <!-- TinyMCE Content -->
+        <div class="content-editor mb-4 mt-4">
+            <label for="content" class="block text-2xl font-bold text-gray-700">Notes</label>
+            <textarea id="lecture-content-editor" name="content" class="mt-1 block w-full bg-gray-100 border border-gray-300 rounded-md shadow-2xl focus:ring-blue-500 focus:border-blue-500 2xl:text-2xl h-96">
+            </textarea>
+        </div>
+
+        <!-- Attachment Upload -->
+        <div>
+            <label for="attachment" class="block text-2xl mt-6 mb-2 font-medium text-gray-700">Attachment (Optional)</label>
+            <input id="attachment" name="attachment" type="file" class="block w-full text-2xl text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-2xl file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        </div>
+
+        <!-- Video Upload -->
+        <div>
+            <label for="video" class="block text-2xl mt-6 mb-2 font-medium text-gray-700">Video (Optional)</label>
+            <input id="video" name="video" type="file" class="block w-full text-2xl text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-2xl file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex justify-between">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white text-3xl font-bold py-6 px-10 mt-8 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Save Lecture
+            </button>
+
+            <a href="{% url 'lectures' Class.id %}" class="bg-gray-500 hover:bg-gray-600 text-white text-3xl font-bold py-6 px-10 mt-8 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+</section>
+<!-- TinyMCE Script -->
+<script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+<script>
+    tinymce.init({
+        selector: 'textarea#lecture-content-editor',
+        plugins: 'advlist autolink link image lists charmap preview',
+        toolbar: 'h1 h3 |undo redo | formatselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent |',
+        height: 500,  // Fixed height
+        max_height: 500,
+        menubar: false,
+        branding: false,
+        
+    });
+    
+</script>
+
+
+{% endblock content %}

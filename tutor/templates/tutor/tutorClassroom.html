@@ -1,0 +1,257 @@
+{% extends "classroom/classroom_base.html" %}
+{% load static %}
+
+{% block content %}
+{% for message in messages %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+<span style="color:red; font-size:14px;">{{ message }}</span>
+</div>
+{% endfor %}
+<section class="tutor-dashboard">
+    <!-- Top Section -->
+    <form action="{% url 'tutorClassroom' Class.id %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="dashboard-top-section" id="specific-assignment-container">
+            <!-- Left Card -->
+            <div class="dashboard-card-info" id="specific-assignment-details-card">
+                <div class="class-info-header">
+                    <!-- Class cover photo -->
+                    <img src="{{ Class.cover_pic.url }}" alt="Class Cover Photo" class="class-cover-photo object-cover rounded-lg mb-4">
+            
+                    <!-- Form group for changing cover photo -->
+                    <div class="specific-form-group-class-cover-photo mb-4">{{mini_form.cover_pic}}</div>
+            
+                    <!-- Class name input -->
+                    <p class="class-name-input text-xl">Change name:</span> </p>
+                        <div class="text-4xl text-center">
+                            <input id="name" name="name" value="{{mini_form.name.value}}" type="text" class="mt-1 p-4 block text-3xl text-bold w-full h-13 text-center bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+
+                    <br>
+            
+                    <!-- Class creation date -->
+                    <p class="text-xl">Created at:</p>
+                    <p class="class-date-created utc-time text-gray-500 text-xl mb-2" data-utc="{{Class.created_at|date:'Y-m-d\TH:i:s'}}" data-format="date-only"></p>
+            
+                    <!-- Total students -->
+                    <p class="class-total-students text-gray-700 text-2xl font-semibold mb-4">Total Students: {{Class.students.count}}</p>
+                </div>
+            
+                <!-- Save button -->
+                <button type="submit" class="btn classroom-update-btn">
+                    Save Changes
+                </button>
+            </div>
+            
+
+            <!-- Right Card -->
+            <div class="dashboard-description-card" id="specific-assignment-submission-card">
+                <div class="description-editor-container">
+                    <h2 class="description-title text-3xl text-bold mb-4">Description</h2>
+                    {% if mini_form.description.errors %}
+                        {% for error in mini_form.description.errors %}
+                        <p class="description-title"><span style="color:red; font-size:16px;"> {{ error }}</span></p>
+                        {% endfor %}
+                {% endif %}
+                    {{ mini_form.description }}
+                    
+                </div>
+                
+                <button type="submit" class="btn classroom-update-btn">Save Changes</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Bottom Section -->
+    <div class="dashboard-bottom-section">
+        <!-- Students Table -->
+        <div class="dashboard-table-container">
+            <h2 class="table-title">Students </h2>
+            <a href="{% url "studentCorner" id=Class.id %}" class="mt-2 mb-12 text-2xl view-profile-button">Go to student corner</a>
+            {% if class_students %}
+            <div class="students-tabl mt-5">
+                <!-- Sample Table Data -->
+                {% for student in class_students %}
+                <div class="student-table-row">
+                    {% if student.student.profile_pic %}
+                        <img src="{{ student.student.profile_pic.url }}" class="student-profile-photo" alt="Profile Photo">
+                    {% else %}
+                        <img src="{% static 'images/male.png' %}" class="student-profile-photo" alt="Profile Photo">
+                    {% endif %}
+                    <p class="student-name">{{student.student.user.username}}</p>
+                    <a href="{% url "studentCorner" id=Class.id sid=student.id %}" class="view-profile-button">View Profile</a>
+                </div>
+                
+                {% endfor %}
+                <div class="student-table-row">
+                    <a href="{% url "studentCorner" id=Class.id %}" class="mt-2 mb-1 p-4 text-4xl font-bold text-center w-full view-profile-button">Go to student corner</a>
+                </div>
+                {% else %}
+                <p class="requester-name">No students</p>
+                {% endif %}
+                <!-- Add more student rows as needed -->
+            </div>
+        </div>
+
+        <!-- Requests Table -->
+        <div class="dashboard-table-container">
+            <p class="table-title">Requests</p>
+            <div class="requests-table">
+                <!-- Sample Table Data -->
+                {% if requests %}
+
+                {% for student in requests %}
+                <div class="request-table-row" id="student-{{ student.id }}">
+                    <div class="col-student-table-row-columns-name">
+                        <p class="requester-email">{{ student.user.email }}</p>
+                    </div>
+                    <div class="col-student-table-row-columns-view">
+                        <button class="view-profile-button" onclick="toggleStudentDetail('{{ student.id }}', this)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>&nbsp;<span>View</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="student-detail" id="student-detail-{{ student.id }}" style="display:none;">
+                    {% if student.profile_pic %}
+                        <img src="{{ student.profile_pic.url }}" class="student-profile-photo" alt="Profile Photo">
+                    {% else %}
+                        <img src="{% static 'images/male.png' %}" class="student-profile-photo" alt="Profile Photo">
+                    {% endif %}
+                    <br>
+                    <p><span style="font-size:20px;">{{ student.user.username }}</span></p>
+                    <p><span style="font-size:12px;">{{ student.user.email }}</span></p><br>
+                    <div class="row">
+                        <button type="button" class="approve-button" data-student-id="{{ student.id }}">approve</button>&nbsp;&nbsp;&nbsp;
+                        <button type="button" class="reject-button" data-student-id="{{ student.id }}">reject</button>
+                    </div>
+                </div>
+                    
+                
+                {% endfor %}
+                {% else %}
+                <p class="requester-name">No requests</p>
+                {% endif %}
+
+            </div>
+        </div>   
+    </div>   
+        <form id="deleteForm" method="post" action="{% url 'tutorClassroomDelete' Class.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" id="deleteButton">Deactivate classroom</button>
+        </form>  
+    </div>
+</section>
+<script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+<script>
+    
+
+    document.getElementById('deleteButton').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent form from submitting immediately
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show the loading alert
+                Swal.fire({
+                    title: 'Deleting...',
+                    text: 'Please wait while we delete the classroom. clearing all the resources',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading(); // Show the loading spinner
+                    }
+                });
+
+                // Submit the form after showing the loading alert
+                document.getElementById('deleteForm').submit();
+            }
+        });
+    });
+
+    function toggleStudentDetail(id, button) {
+        var detailElement = document.getElementById('student-detail-' + id);
+        var icon = button.querySelector('i'); // Get the icon element
+        var text = button.querySelector('span'); // Get the text element
+        
+        if (detailElement.style.display === 'none' || detailElement.style.display === '') {
+            detailElement.style.display = 'block';
+            icon.classList.remove('fa-eye'); // Remove eye icon
+            icon.classList.add('fa-times'); // Add times icon (close)
+            text.innerHTML = ' Close'; // Update text to Close
+        } else {
+            detailElement.style.display = 'none';
+            icon.classList.remove('fa-times'); // Remove times icon
+            icon.classList.add('fa-eye'); // Add eye icon
+            text.innerHTML = ' View'; // Update text to View
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        tinymce.init({
+            selector: 'textarea',
+            plugins: 'advlist autolink lists link image charmap preview anchor autoresize',
+            toolbar: 'undo redo | h1 h3 h6 | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | help',
+            menubar: false,
+            autoresize_min_height: 200,  // Minimum height for the editor
+            autoresize_max_height: 600,  // Maximum height for the editor
+            autoresize_bottom_margin: 10, // Space at the bottom of the editor
+            setup: function (editor) {
+                editor.on('init', function () {
+                    // No manual resizing is required, autoresize will handle it
+                });
+            }
+        });
+    });
+    
+    
+    
+
+    $(document).ready(function() {
+        $('.approve-button, .reject-button').click(function(event) {
+            event.preventDefault();
+            var button = $(this);
+            var studentId = button.data('student-id');
+            var action = button.hasClass('approve-button') ? 'approve' : 'reject';
+            
+            $.ajax({
+                url: "{% url 'tutorClassroom' id=Class.id %}",  // Ensure this URL is correct
+                type: 'POST',
+                data: {
+                    'student_id': studentId,
+                    'action': action,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        // Remove the corresponding student request row
+                        $('#student-' + studentId).remove();
+                        $('#student-detail-' + studentId).remove(); // Remove the detail card as well
+                
+                        if (action === 'approve') {
+                            // Show the notification
+                            location.reload();
+                        }
+                    } else {
+                        alert(response.message);
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    alert('An error occurred: ' + errorThrown);
+                }
+            });
+        });
+    });
+    
+    
+    
+</script>
+{% endblock content %}

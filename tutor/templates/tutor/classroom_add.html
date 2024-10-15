@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Your profile</title>
+
+   <!-- font awesome cdn link  -->
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+   <!-- custom css file link  -->
+   <link rel="stylesheet" href="{% static "css/style.css" %}">
+  
+</head>
+
+<body>
+
+{% include "header.html" %}
+
+<section class="form-container" style="min-height: calc(100vh - 19rem);">
+
+   <form action="{% url "classroomAdd" %}" method="post" enctype="multipart/form-data">
+    {% csrf_token %}  
+    <h3>Add classroom</h3>
+     </div>
+      <div class="flex">
+          <div class="col">
+              <p>Upload cover pic</p>
+              <input type="file" name="cover_pic" value="{{class_form.cover_pic.value | default:''}}" accept="image/*" class="box">
+              {% if class_form.cover_pic.errors %}
+              {% for error in class_form.cover_pic.errors %}
+              <p><span style="font-size:14px; color:red;">{{error}}</span></p><br>
+              {% endfor %}
+              {% endif %}
+              <p>Name</p>
+              <input type="text" name="name" value="{{class_form.name.value | default:'' }}" class="box">
+              <p>Code: 8-16 digit </p>
+              <input type="text" name="code" value="{{class_form.code.value | default:'' }}" class="box">
+              <p>password: 8-16 digit </p>
+              <input type="text" name="password" value="{{class_form.password.value | default:'' }}" class="box">
+              <span style="color:red; font-size:14px;">{{ class_form.non_field_errors }}</span>
+            
+              {% if messages %}
+              {% for message in messages %}
+              <p><span style="font-size:14px; color:red;">{{message}}</span></p><br>
+              {% endfor %}
+              {% endif %}
+
+          </div>
+          
+      </div>
+      <input type="submit" name="submit" value="Create" class="btn">
+  </form>
+
+</section>
+
+<!-- update profile section ends -->
+
+
+<!-- custom js file link  -->
+<script src="{% static "js/script.js" %}"></script>
+   
+</body>
+</html>
