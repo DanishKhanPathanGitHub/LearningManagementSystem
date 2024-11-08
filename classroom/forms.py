@@ -9,6 +9,7 @@ from django.utils import timezone
 from tinymce.widgets import TinyMCE
 import uuid
 from django.utils.text import slugify
+from django.db.models import Max
 
 class AssignmentForm(forms.ModelForm):
     assignment=forms.FileField(widget=forms.FileInput(attrs={"class":"btn-btn-info"}), validators=[file_validator])
@@ -47,7 +48,7 @@ class SectionForm(forms.ModelForm):
 
     def __init__(self, *args, classroom=None, is_update=False, **kwargs):
         super().__init__(*args, **kwargs)
-        max_order = Section.objects.filter(classroom=classroom).aggregate(Max('order'))['order__max'] or 0
+        max_order = Section.objects.only('order').filter(classroom=classroom).aggregate(Max('order'))['order__max'] or 0
         if is_update:
             max_order -= 1 
         # Create choices for the order field
@@ -67,7 +68,7 @@ class LectureForm(forms.ModelForm):
 
         is_update = self.instance.pk is not None
 
-        max_order = Lecture.objects.filter(section=section).aggregate(Max('order'))['order__max'] or 0
+        max_order = Lecture.objects.only('order').filter(section=section).aggregate(Max('order'))['order__max'] or 0
         # Create choices for the order field
         if not is_update and section:
             self.fields['section'].required = False
@@ -81,7 +82,7 @@ class LectureForm(forms.ModelForm):
 
         elif is_update and section:
             self.fields['section'].initial = section
-            self.fields['section'].queryset = Section.objects.filter(classroom=section.classroom)
+            self.fields['section'].queryset = Section.objects.only('order', 'title').filter(classroom=section.classroom)
         
         self.fields['content'] = forms.CharField(widget=TinyMCE(attrs={'cols': 80, 'rows': 30}), required=False)
         self.fields['attachment'] = forms.FileField(
@@ -97,7 +98,7 @@ class LectureForm(forms.ModelForm):
         self.fields['slug'] = forms.SlugField(
             widget=forms.HiddenInput(),
             required=False
-        )   
+        )
 
     def clean(self):
         cleaned_data = super().clean()

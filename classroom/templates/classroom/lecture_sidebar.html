@@ -147,11 +147,11 @@
             
             // Send AJAX POST request to toggle lecture completion
             $.ajax({
-                url: '{% url "toggle_lecture_completion" %}',  // Your Django view URL
+                url: '{% url "toggle_lecture_completion" %}', 
                 type: 'POST',
                 data: {
                     'lecture_id': lectureId,
-                    'csrfmiddlewaretoken': '{{ csrf_token }}'  // Include the CSRF token
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'  
                 },
                 success: function(response) {
                 },

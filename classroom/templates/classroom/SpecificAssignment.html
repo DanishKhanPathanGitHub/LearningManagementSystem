@@ -12,7 +12,7 @@
         <!-- Students Table -->
         <div id="specific-assignment-container">
             <!-- Assignment Details Card -->
-            <div id="specific-assignment-details-card">
+            <div id="specific-assignment-details-card">  
                 <h2 class="specific-assignment-title">{{ assignment.name }}</h2>
                 <p class="specific-assignment-description"><strong>Description:</strong> {{ assignment.description }}</p>
                 
@@ -38,16 +38,23 @@
                     <h3 id="specific-submission-title">Resubmit Your Assignment or Wait for Approval</h3>
                     <p id="specific-submission-info">Your submission is under review. You can resubmit if needed.</p>
                     <a href="{{ check.submitted_file.url }}" id="specific-view-submission-btn" class="specific-btn specific-btn-secondary" target="_blank">View Submitted Assignment</a>
-                    <form method="POST" enctype="multipart/form-data" id="specific-assignment-submission-form">
-                        {% csrf_token %}
-                        <div class="specific-form-group">
-                            {{ submission_form.submitted_file }}
-                        </div>
-                        {% if submission_form.submitted_file.errors %}
-                        <p class="late-not-allowed">{{submission_form.submitted_file.errors.0}}</p><br>
-                        {% endif %}
-                        <button type="submit" class="specific-btn specific-btn-warning">Resubmit Assignment</button>
-                    </form>
+                    <div class="assignment-action-container">
+                        <form method="POST" action="{% url "SpecificAssignment" Class.id assignment.id %}" enctype="multipart/form-data" id="specific-assignment-submission-form">
+                            {% csrf_token %}
+                            <div class="specific-form-group">
+                                {{ submission_form.submitted_file }}
+                            </div>
+                            {% if submission_form.submitted_file.errors %}
+                                <p class="late-not-allowed">{{ submission_form.submitted_file.errors.0 }}</p><br>
+                            {% endif %}
+                            <button type="submit" class="specific-btn specific-btn-warning submit-btn">Resubmit Assignment</button>
+                        </form>
+                        
+                        <form action="{% url "SubmissionDelete" Class.id assignment.id %}" method="POST">
+                            {% csrf_token %}
+                            <button type="submit" class="specific-btn specific-btn-danger delete-btn mt-20">Delete Assignment</button>
+                        </form>
+                    </div>
         
                 {% elif submission_status and approved_status %}
                     <!-- Message when assignment is submitted and approved -->
@@ -58,7 +65,7 @@
                 {% else %}
                     <!-- Show form for initial submission -->
                     <h3 id="specific-submission-title">Submit Your Assignment</h3>
-                    <form method="POST" enctype="multipart/form-data" id="specific-assignment-submission-form">
+                    <form method="POST" action="{% url "SpecificAssignment" Class.id assignment.id %}" enctype="multipart/form-data" id="specific-assignment-submission-form">
                         {% csrf_token %}
                         <div class="specific-form-group">
                             {{ submission_form.submitted_file }}

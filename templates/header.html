@@ -15,12 +15,12 @@
             <!-- Profile Picture or Default Image -->
             <a href="{% url "notifications" %}" class="icon-button notification-icon">
                 <span style="font-size:19px; color:black;"><i class="fa fa-bell" aria-hidden="true"></i></span>
-                <span class="notification-badge">{{notification_count}}</span>
+                <span class="notification-badge">{{user.unread_notifications_count}}</span>
             </a>
 
             <a href="{% url 'profile' %}" class="icon-button">
-                {% if user_profile.profile_pic %}
-                <img src="{{ user_profile.profile_pic.url }}" alt="Profile" class="profile-pic">
+                {% if user.userprofile.profile_pic %}
+                <img src="{{ user.userprofile.profile_pic.url }}" alt="Profile" class="profile-pic">
                 {% else %}
                 <img src="{% static 'images/male.png' %}" alt="Profile" class="profile-pic">
                 {% endif %}

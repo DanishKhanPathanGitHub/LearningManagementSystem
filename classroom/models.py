@@ -3,7 +3,9 @@ from django.forms import ValidationError
 from accounts.models import User, userProfile
 from django.core.validators import MinLengthValidator
 from tinymce.models import HTMLField
-from django.db.models import Max
+from django.core.files.storage import default_storage
+from django.db.models import F
+
 # Create your models here.
 
 class Classroom(models.Model):
@@ -30,13 +32,7 @@ class Classroom(models.Model):
         
         for student_data in self.classroom_students_data.all():
             student_data.delete()
-        link = f'/classroom/{self.id}'
-        try:
-            notification = Notification.objects.get(link=link)
-            notification.delete()
-            print("dleeted notification")
-        except Notification.DoesNotExist:
-            pass
+            
         self.cover_pic.delete()
         super().delete(*args, **kwargs)
 
@@ -55,6 +51,9 @@ class StudentClassroom(models.Model):
     classroom = models.ForeignKey(Classroom, related_name='classroom_students_data', on_delete=models.CASCADE)
     joined_date = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('student', 'classroom')
+
     def delete(self, *args, **kwargs):
         """deletes the submissions and files by student"""
         for submission in self.student.students_submissions.all():
@@ -62,12 +61,10 @@ class StudentClassroom(models.Model):
             submission.delete()
 
         self.classroom.students.remove(self.student)
-        self.classroom.save()
 
         super().delete(*args, **kwargs)
 
-    class Meta:
-        unique_together = ('student', 'classroom')
+    
 
 class Assignment(models.Model):
     name = models.CharField(max_length=50)
@@ -77,11 +74,7 @@ class Assignment(models.Model):
     due_date = models.DateTimeField(auto_now_add=False)
     description = models.TextField(null=True, blank=True)
     late_submission_allow = models.BooleanField(default=False)
-    
 
-    class Meta:
-        verbose_name = ("Assignment")
-        verbose_name_plural = ("Assignments")
 
     def __str__(self):
         return self.name
@@ -89,24 +82,27 @@ class Assignment(models.Model):
     def delete(self, *args, **kwargs):
         """
         deletes the files and submission files associated with assignment object
+        deletes the announcements and notifications associated with the assignment
         """
-        for submissiom in self.assignment_submissions.all():
-            submissiom.submitted_file.delete()
-            submissiom.delete()
-        link = f'/classroom/{self.classroom.id}/assignments/{self.id}/'
-        try:
-            announcement = Announcement.objects.get(link=link)
-            announcement.delete()
-        except Announcement.DoesNotExist:
-            pass
-        try:
-            notification = Notification.objects.get(link=link)
-            notification.delete()
-            print("dleeted notification")
-        except Notification.DoesNotExist:
-            pass
+        submissions = self.assignment_submissions.all()
+        submission_files = [submission.submitted_file.path for submission in submissions if submission.submitted_file]
+        submissions.delete()
 
-        self.assignment.delete()
+        # Delete files after bulk deleting submissions
+        for file_path in submission_files:
+            try:
+                default_storage.delete(file_path)
+            except FileNotFoundError:
+                pass
+
+        # Delete associated announcements and notifications directly with bulk deletion
+        link = f'/classroom/{self.classroom.id}/assignments/{self.id}/'
+        Announcement.objects.filter(link=link).delete()
+        
+        # Delete the assignment file
+        if self.assignment:
+            self.assignment.delete(save=False)
+
         super().delete(*args, **kwargs)
 
 class AssignmentSubmission(models.Model):
@@ -119,8 +115,6 @@ class AssignmentSubmission(models.Model):
 
 
     class Meta:
-        verbose_name = ("AssignmentSubmissions")
-        verbose_name_plural = ("AssignmentsSubmissions")
         unique_together = ('student', 'assignment')
 
 
@@ -132,9 +126,7 @@ class Announcement(models.Model):
     upload_date = models.DateTimeField(auto_now_add=True)
     link = models.URLField(max_length=1000, null=True, blank=True)
     tutor_link = models.URLField(max_length=1000, null=True, blank=True)
-    class Meta:
-        verbose_name = ("announcement")
-        verbose_name_plural = ("announcements")
+
 
     def __str__(self):
         return self.title
@@ -164,13 +156,12 @@ class Section(models.Model):
     updated_at = models.DateField(auto_now=True)
     classroom = models.ForeignKey(Classroom, related_name="sections", on_delete=models.CASCADE)
 
-    def __str__(self) -> str:
-        return self.title
-    
     class Meta:
         unique_together = ('classroom', 'order')
-
-
+ 
+    def __str__(self) -> str:
+        return self.title
+ 
     @transaction.atomic
     def delete(self, *args, **kwargs):
         """
@@ -182,12 +173,15 @@ class Section(models.Model):
         """
         for lecture in self.lectures.all():
             lecture.delete(skip_order_adjustment=True)
-        NextSections = Section.objects.filter(classroom=self.classroom, order__gt=self.order).order_by('order')
-        self.order = 200
-        self.save()
-        for section in NextSections:
-            section.order-=1
-            section.save()
+
+        curr_order = self.order
+        self.order = 999
+        self.save(update_fields=['order'])
+
+        Section.objects.filter(
+            classroom=self.classroom, order__gt=curr_order
+        ).order_by('order').update(order=F('order')-1)
+        
         super().delete(*args, **kwargs)
         
 
@@ -230,14 +224,16 @@ class Lecture(models.Model):
             announcement.delete()
             
         except Exception as e:
-            print(f'except case+{e}')
+            pass
         if not skip_order_adjustment:
-            NextLectures = Lecture.objects.filter(order__gt=self.order, section=self.section).order_by('order')
-            self.order = 200
-            self.save()
-            for lecture in NextLectures:
-                lecture.order-=1
-                lecture.save()
+            curr_order = self.order
+            self.order = 999
+            self.save(update_fields=['order'])
+
+            Lecture.objects.filter(
+                order__gt=curr_order, section=self.section
+            ).order_by('order').update(order=F('order')-1)
+
         super().delete(*args, **kwargs)
 
 class StudentLectureProgress(models.Model):
@@ -260,4 +256,10 @@ class Comment(models.Model):
     parent = models.ForeignKey('self', related_name="replies", on_delete=models.SET_NULL, null=True, blank=True)
     user = models.ForeignKey(userProfile, related_name="comments", on_delete=models.CASCADE)
     image = models.ImageField(upload_to='class/lectures/comments', null=True, blank=True)
+
+    def delete(self, *args, **kwargs):
+        """deletes the associated image if any"""
+        if self.image:
+            self.image.delete()
+        return super().delete(*args, **kwargs)
     

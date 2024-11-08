@@ -1,11 +1,13 @@
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import render, redirect
 from classroom.models import *
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
+from django.db.models import Count, Prefetch
+from django.core import cache
 
 from accounts.utils import check_role_tutor
-from classroom.utils import check_classroom_participant
+from classroom.utils import check_classroom_participant, load_class_data_from_cache
 from .forms import *
 from accounts.models import userProfile
 from django.contrib import messages
@@ -14,25 +16,34 @@ from django.contrib import messages
 @login_required(login_url='login')
 @user_passes_test(check_role_tutor)
 def tutorClassroom(request, id):
-    user = request.user  # Access the authenticated user
+    user = request.user 
     if check_classroom_participant(user, id):
-        Class = Classroom.objects.get(id=id)  
-        class_students = StudentClassroom.objects.filter(
-            classroom=Class
-        )[:6]
-        requests_students = Class.requests.all()
+        class_data = load_class_data_from_cache(request, user.id, id)
+        Class = class_data['class']
+        classroom_data = Classroom.objects.only('id').prefetch_related(
+            Prefetch(
+                'requests', queryset=userProfile.objects.select_related('user').only(
+                'profile_pic', 'id', 'user__username', 'user__email'
+            )),
+            Prefetch(
+                'classroom_students_data__student__user',
+                queryset=User.objects.select_related('userprofile').only('id', 'username', 'userprofile__profile_pic')
+            )
+        ).get(id=id)
+
         mini_form = ClassroomMiniForm(instance=Class)
         if request.POST:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 action = request.POST.get('action')
                 student_id = request.POST.get('student_id')
                 if action == 'approve':
-                    student_request = userProfile.objects.get(id=student_id)
-                    Class.requests.remove(student_request)
-                    Class.students.add(student_request)
-                    Class.save()
+                    student_request = userProfile.objects.select_related('user').only(
+                        'user__username', 'user__email', 'profile_pic'
+                    ).get(id=student_id)
+                    classroom_data.requests.remove(student_request)
+                    classroom_data.students.add(student_request)
                     StudentClassroom.objects.create(classroom=Class, student=student_request)
-                    notification = Notification.objects.create(
+                    Notification.objects.create(
                         user = student_request,
                         title="Classroom Join request accepted!",
                         content=f"""
@@ -41,7 +52,13 @@ def tutorClassroom(request, id):
                         """,
                         link = f'/classroom/{Class.id}'
                     )
-                    notification.save()
+
+                    cache_key = f"user_{student_id}"
+                    _student = cache.cache.get(cache_key)
+                    if _student:
+                        _student.unread_notifications_count += 1
+                        cache.cache.set(cache_key, _student, timeout=180)
+
                     return JsonResponse({
                             'status': 'success', 'message': 'Request approved',
                             'student': {
@@ -51,9 +68,23 @@ def tutorClassroom(request, id):
                             }
                         })
                 elif action == 'reject':
-                    student_request = userProfile.objects.get(id=student_id)
+                    student_request = userProfile.objects.select_related('user').only('user__username').get(id=student_id)
                     Class.requests.remove(student_request)
-                    Class.save()
+                    Notification.objects.create(
+                        user = student_request,
+                        title="Classroom Join request denied!",
+                        content=f"""
+                            Hello {student_request.user.username} \n Your requst to join classroom:
+                            {Class.name} rejected by the tutor
+                        """
+                    )
+
+                    cache_key = f"user_{student_id}"
+                    _student = cache.cache.get(cache_key)
+                    if _student:
+                        _student.unread_notifications_count += 1
+                        cache.cache.set(cache_key, _student, timeout=180)
+
                     return JsonResponse({'status': 'success', 'message': 'Request rejected'})
                 else:
                     return JsonResponse({'status': 'error', 'message': 'Invalid action'}, status=400)
@@ -66,29 +97,48 @@ def tutorClassroom(request, id):
 
         context = {
             "Class":Class,
-            "class_students":class_students,
+            "class_students":classroom_data.classroom_students_data.all()[:6],
             "mini_form":mini_form,
-            "requests":requests_students,
+            "requests":classroom_data.requests.all(),
         }
         return render(request, 'tutor/tutorClassroom.html', context)
     
 @login_required(login_url='login')
 @user_passes_test(check_role_tutor)
 def tutorClassroomDelete(request, id):
-    user = request.user  # Access the authenticated user
+    user = request.user 
     if check_classroom_participant(user, id):
         if request.POST:
-            Class = Classroom.objects.get(id=id)  
-            for student in Class.students.all():
-                notification = Notification.objects.create(
+            Class = Classroom.objects.select_related('tutor__user').prefetch_related(
+                'assignments', 'assignments__assignment_submissions', 'announcements',
+                'classroom_students_data', 'students__user'
+            ).get(id=id)
+
+            notifications = [
+                Notification(
                     title="Classroom deactivated",
-                    content=f"hello {student.user.username}!! Your classroom: {Class.name} has been deactictivated by the tutor",
-                    user = student
+                    content=f"Hello {student.user.username}! Your classroom: {Class.name} has been deactivated by the tutor.",
+                    user=student
                 )
-                notification.save()
+                for student in Class.students.all()
+            ]
+            Notification.objects.bulk_create(notifications)
+
+            for student in Class.students.all():
+                cache_key = f"user_{student.user.id}"
+                student = cache.cache.get(cache_key)
+                if student:
+                    student.unread_notifications_count += 1
+                    cache.cache.set(cache_key, student, timeout=180)
+                
+
             Class.delete()
+            
+            cache_key = f"classroom_participant_{request.user.id}_{id}"
+            cache.cache.delete(key=cache_key) 
 
             messages.success(request, 'Your classroom has been deleted successfully.')
+            return redirect('home')
    
 
 @login_required(login_url='login')
@@ -98,7 +148,7 @@ def classroomAdd(request):
         class_form = ClassroomForm(request.POST, request.FILES)
         if class_form.is_valid():
             Class = class_form.save(commit=False)
-            Class.tutor = userProfile.objects.get(user=request.user)
+            Class.tutor = request.user.userprofile
             Class.save()
             messages.success(request, "class created succesfully")
             return redirect('home')
@@ -116,12 +166,17 @@ def classroomAdd(request):
 def studentCorner(request, id, sid=None):
     if check_classroom_participant(request.user, id):
         student = None
-        Class = Classroom.objects.get(id=id)
-        students = StudentClassroom.objects.filter(classroom=Class)
-
+        class_data = load_class_data_from_cache(request, request.user.id, id)
+        Class = class_data['class']
+        classroom_data = Classroom.objects.only('id').prefetch_related(
+            Prefetch(
+                'classroom_students_data__student__user',
+                queryset=User.objects.select_related('userprofile').only('id', 'username', 'userprofile__profile_pic')
+            )
+        ).get(id=id)
         if request.GET and  request.headers.get('x-requested-with') == 'XMLHttpRequest':
             name = request.GET['name']
-            student = students.filter(student__user__username__icontains=name)
+            student = classroom_data.classroom_students_data.filter(student__user__username__icontains=name)
             return JsonResponse({
                 'student':student,
                 'student_profile': student.student,
@@ -138,8 +193,10 @@ def studentCorner(request, id, sid=None):
 
         if sid:
             try:
-                student = StudentClassroom.objects.get(id=sid)
-                if check_classroom_participant(student.student.user, id):
+                student = StudentClassroom.objects.select_related('student__user').only(
+                    'student__profile_pic', 'student__user__username', 'student__user__email'
+                ).get(id=sid)
+                if check_classroom_participant(student.student.user, id, use_cache=False):
                     lectures = Lecture.objects.filter(section__classroom=Class).order_by('section__order', 'order')
                     
                     completed_lectures_by_student = Lecture.objects.filter(
@@ -176,12 +233,11 @@ def studentCorner(request, id, sid=None):
                 else:
                     return render(request, '403.html')
             except Exception as e:
-                print(str(e))
                 return render(request, '403.html')
         
         context = {
             'Class':Class,
-            'students':students,
+            'students':classroom_data.classroom_students_data.all(),
             'student':student,
             'lectures':lectures,
             'completed_lectures_by_student':completed_lectures_by_student,
@@ -201,23 +257,32 @@ def studentCorner(request, id, sid=None):
 @require_POST
 def remove_student_from_class(request, id, sid):
     if check_classroom_participant(request.user, id):
-        print('inside requety')
         try:
-            print('inside try block')
-            student_profile = userProfile.objects.get(id=sid)
-            if check_classroom_participant(student_profile.user, id):
-                print("Yes")
-                classroom = Classroom.objects.get(id=id)
-                student_classroom_profile = StudentClassroom.objects.get(student=student_profile, classroom=classroom)
-                username = student_profile.user.username
+            student_profile = userProfile.objects.select_related('user').only('user__username').get(id=sid)
+            if check_classroom_participant(student_profile.user, id, use_cache=False):
+                student_classroom_profile = StudentClassroom.objects.select_related('classroom').only(
+                    'classroom__name'
+                ).get(student=student_profile, classroom__id=id)
                 noti = Notification.objects.create(
                     title = 'You got removed from the class',
-                    content = f'Hey {username} You got removed from the class {student_classroom_profile.classroom.name} by the tutor',
+                    content = f'Hey {student_profile.user.username} You got removed from the class {student_classroom_profile.classroom.name} by the tutor',
                     user = student_profile
                 )
-                noti.save()
+                
+                cache_key = f'user_{student_profile.user.id}'
+                _student = cache.cache.get(cache_key)
+                if _student:
+                    _student.unread_notifications_count+=1
+                    cache.cache.set(cache_key, _student, timeout=180)
+
+                cache_key = f'classroom_participant_{student_profile}_{id}'
+                cache.cache.delete(cache_key) 
+
+                cache_key = f'{student_profile.user.id}_class_{id}_data'
+                cache.cache.delete(cache_key) 
+
                 student_classroom_profile.delete()
-                messages.success(request, f'student {username} removed from the class')
+                messages.success(request, f'student {student_profile.user.username} removed from the class')
                 return redirect(f'/tutor/studentCorner/{id}/students/')
                 
             else:
@@ -233,21 +298,25 @@ def remove_student_from_class(request, id, sid):
 def tutorSpecificAssignment(request, id, asid):
     if check_classroom_participant(request.user, id):
         Class = Classroom.objects.get(id=id)
-        assignment = Assignment.objects.get(id=asid)
+        assignment = Assignment.objects.select_related('classroom').get(id=asid)
         due_date_initial = assignment.due_date
-        print(assignment.due_date, 'due_date 1')
         if assignment.classroom != Class:
             return render(request, '404.html')
         
         assignment_form = AssignmentUpdateForm(instance=assignment)
         class_students = Class.students.all()
-        assignment_submissions = AssignmentSubmission.objects.filter(assignment=assignment)
 
         students_with_pending_submission = class_students.exclude(
-            id__in=assignment_submissions.values_list('student', flat=True)
+            id__in=assignment.assignment_submissions.values_list('student', flat=True)
+        ).select_related('user').only('id', 'user__username')
+        approved_submission = assignment.assignment_submissions.filter(is_approved=True).select_related('student__user').only(
+            'upload_date', 'late_submission', 'submitted_file', 'assignment',
+            'student__profile_pic', 'student__user__email', 'student__user__username',
         )
-        approved_submission = assignment_submissions.filter(is_approved=True)
-        pending_approval = assignment_submissions.filter(is_approved=False)
+        pending_approval = assignment.assignment_submissions.filter(is_approved=False).select_related('student__user').only(
+            'upload_date', 'late_submission', 'submitted_file', 'assignment',
+            'student__profile_pic', 'student__user__email', 'student__user__username',
+        )
 
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             if request.POST:
@@ -263,7 +332,7 @@ def tutorSpecificAssignment(request, id, asid):
                     updated_assignment.classroom = Class
                     updated_assignment.due_date = due_date
                     updated_assignment.save()
-
+                    cache.cache.set(f'cache_reload_{id}_all', (True, timezone.now()), timeout=181)
                     return JsonResponse({
                         'status': 'success',
                         'message': 'assignment updated successfully'
@@ -277,11 +346,14 @@ def tutorSpecificAssignment(request, id, asid):
             elif request.GET:
                 submission_id = request.GET.get('submission_id')
                 action = request.GET.get('action')
-                submission = AssignmentSubmission.objects.get(id=submission_id)
+                submission = AssignmentSubmission.objects.select_related('student__user').only(
+                    'is_approved', 'late_submission', 'upload_date', 'submitted_file',
+                    'student__profile_pic', 'student__user__username', 'student__user__email'
+                ).get(id=submission_id)
                 username = submission.student.user.username
                 if action == 'approve':
                     submission.is_approved = True
-                    submission.save()
+                    submission.save(update_fields=['is_approved'])
                     noti = Notification.objects.create(
                         user=submission.student,
                         title="Submission Approoved",
@@ -289,7 +361,13 @@ def tutorSpecificAssignment(request, id, asid):
                         in {Class.name} got approoved by the tutor.",
                         link = f'/classroom/{Class.id}/assignments/{assignment.id}'
                     )
-                    noti.save()
+                    cache_key = f'user_{submission.student.user.id}'
+                    _student = cache.cache.get(cache_key)
+                    if _student:
+                        _student.unread_notification_count = 180
+                        cache.cache.set(cache_key, _student, timeout=180)
+                    
+                    cache.cache.set(f'cache_reload_{id}_student', (True, timezone.now()), timeout=181)
                     return JsonResponse({
                         'status': 'success', 'message': 'submission approved', 
                         'submission': {
@@ -311,10 +389,17 @@ def tutorSpecificAssignment(request, id, asid):
                         user=submission.student,
                         title="Submission rejected",
                         content=f"Hey {username}! Your assignment submission for assignment: {assignment.name} \
-                        in {Class.name} got rejected by the tutor. You have to re submit it.",
+                        in {Class.name} got rejected by the tutor. You have to resubmit it.",
                         link = f'/classroom/{Class.id}/assignments/{assignment.id}'
                     )
-                    noti.save()
+                    cache_key = f'user_{submission.student.user.id}'
+                    _student = cache.cache.get(cache_key)
+                    if _student:
+                        _student.unread_notifications_count+=1
+                        cache.cache.set(cache_key, _student, timeout=180)
+                    
+                    cache.cache.set(f'cache_reload_{id}_student', (True, timezone.now()), timeout=181)
+
                     submission.submitted_file.delete()
                     submission.delete()
                     
@@ -343,36 +428,44 @@ def tutorSpecificAssignment(request, id, asid):
 @require_POST
 def notify_all(request, id, asid):
     try:
-        # Fetch assignment and classroom objects
-        assignment = Assignment.objects.get(pk=asid)
-        classroom = Classroom.objects.get(pk=id)
-
-        if assignment.due_date <= timezone.now() and assignment.late_submission_allow is False:
-            return JsonResponse({'status':'failure', 'message':'Due date of this assignment has passed and You didn\'t allowed late submission'})
-
-        # Get all students in the class and exclude those who have submitted the assignment
-        students = classroom.students.exclude(
-            id__in=AssignmentSubmission.objects.filter(
-                assignment=assignment, 
-            ).values_list('student_id', flat=True)  # Fixed exclude query
-        )
-        last_notification = Notification.objects.filter(
+        assignment = Assignment.objects.only('due_date', 'late_submission_allow', 'name').get(pk=asid)
+        last_notification = Notification.objects.only('timestamp').filter(
             assignment=assignment
         ).order_by('-timestamp').first()
         if last_notification and timezone.now() - last_notification.timestamp < timedelta(hours=12):
             return JsonResponse({'status':'failure', 'message':'You can notify students only once every 12 hours.'})
-           
-        # Send notifications to each student who hasn't submitted
-        for student in students:
-            notification = Notification.objects.create(
+        
+        
+        classroom = Classroom.objects.only('name').get(pk=id)
+
+        if assignment.due_date <= timezone.now() and assignment.late_submission_allow is False:
+            return JsonResponse({'status':'failure', 'message':'Due date of this assignment has passed and You didn\'t allowed late submission'})
+
+        students = classroom.students.exclude(
+            id__in=AssignmentSubmission.objects.filter(
+                assignment=assignment, 
+            ).values_list('student_id', flat=True)  
+        ).select_related('user').only('user__username')
+        
+        notifications = [
+            Notification(
                 title='Complete Assignment',
                 content=f'''Hey {student.user.username}! \nGreetings from {classroom.name}, \
                 Complete Your assignment: \n{assignment.name}''',
                 user=student,
                 link=f'/classroom/{id}/assignments/{asid}',
                 assignment = assignment
-            )
-            notification.save()
+            )  
+            for student in students 
+        ]
+        Notification.objects.bulk_create(notifications)
+        for student in students:
+            cache_key = f'user_{student.user.id}'
+            _student = cache.cache.get(cache_key)
+            if _student:
+                _student.unread_notifications_count+=1
+                cache.cache.set(cache_key, _student, timeout=180)
+            
             
        
         return JsonResponse({'status': 'success', 'message': 'Notifications sent to all students.'})
@@ -390,11 +483,10 @@ def notify_all(request, id, asid):
 @user_passes_test(check_role_tutor)
 def SpecificAssignment_delete(request, id, asid):
     if check_classroom_participant(request.user, id):
-        Class = Classroom.objects.get(id=id)
-        assignment = Assignment.objects.get(id=asid)
-        assignment.delete()
+        Assignment.objects.get(id=asid).delete()
+        cache.cache.set(f'cache_reload_{id}_all', (True, timezone.now()), timeout=181)
         messages.success(request, 'Assignment Delted')
-        return redirect(f'/classroom/{Class.id}/assignments/')
+        return redirect(f'/classroom/{id}/assignments/')
 
 
 

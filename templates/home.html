@@ -37,14 +37,14 @@
       <div class="box">
          <div class="tutor">
             <img src="{{classroom.tutor.profile_pic.url}}" alt="">
-            <div>
+            <div> 
                <h3>{{classroom.name}}</h3>
                <span>{{classroom.created_at}}</span>
             </div>
          </div>
          <img src="{{ classroom.cover_pic.url }}" class="thumb" alt="">
          <h3 class="title">{{classroom.tutor.user.username}}</h3>
-         {% if request.user.role == 2 %}
+         {% if user.role == 2 %}
          <a href="{% url "tutorClassroom" classroom.id %}" class="inline-btn">Go to classroom</a>
          {% else %}
          <a href="{% url "classroom" classroom.id %}" class="inline-btn">Go to classroom</a>

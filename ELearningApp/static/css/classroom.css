@@ -484,6 +484,28 @@ body {
     color: #000;
     border: none;
 }
+.specific-btn-danger {
+    background-color: #ff0707;
+    color: #ffffff;
+    border: none;
+}
+.assignment-action-container {
+    display: flex;
+    flex-wrap: wrap; /* Allows buttons to wrap to a new line if needed */
+    gap: 10px;
+    align-items: center;
+    margin-top: 15px;
+}
+@media (max-width: 600px) {
+    .specific-btn-warning.submit-btn,
+    .specific-btn-danger.delete-btn {
+        padding: 6px 12px; /* Slightly reduce padding on smaller screens */
+        font-size: 2.2rem;
+        padding: 8px 12px;
+        margin-top: 2px;
+    }
+}
+
 
 .specific-form-group {
     margin-bottom: 15px;

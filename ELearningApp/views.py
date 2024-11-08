@@ -6,22 +6,22 @@ from classroom.models import Classroom, Notification
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
+from django.db.models import Q
+from django.core import cache
 
 def home(request):
     try:
-        user_profile = userProfile.objects.get(user=request.user)
-        if user_profile.user.role == 1:
-            classrooms = Classroom.objects.filter(students=user_profile)
-        else:
-            classrooms = Classroom.objects.filter(tutor=user_profile)
-        
+        classrooms = Classroom.objects.filter(
+            Q(students=request.user.userprofile)|Q(tutor=request.user.userprofile)
+        ).select_related('tutor__user').only(
+            'cover_pic', 'name', 'created_at', 'tutor__user__username', 'tutor__profile_pic'
+        ).distinct()
+
     except:
         classrooms=None
-        user_profile=None
 
     context = {
         "classrooms":classrooms,
-        "user_profile":user_profile,
     }
     return render(request, 'home.html', context)
 
@@ -29,29 +29,29 @@ def home(request):
 
 @login_required(login_url='login')
 def profile(request):
-    user_profile = userProfile.objects.get(user=request.user)
-    user_profile_form = userProfileForm(instance=user_profile)
-    user_mini_form = userMiniForm(instance=user_profile.user)
+    user_profile_form = userProfileForm(instance=request.user.userprofile)
+    user_mini_form = userMiniForm(instance=request.user)
+    classrooms = 0
     if request.POST:
-        user_profile_form = userProfileForm(request.POST, request.FILES, instance=user_profile)
+        user_profile_form = userProfileForm(request.POST, request.FILES, instance=request.user.userprofile)
         user_mini_form = userMiniForm(request.POST, instance=request.user)
         if user_profile_form.is_valid() and user_mini_form.is_valid():
             user_mini = user_mini_form.save()
             
             user_profile = user_profile_form.save(commit=False)
-            user_profile.user = user_mini  # Assuming request.user is the current logged-in user
+            user_profile.user = user_mini
             user_profile.save()
             messages.success(request, "user data updated")
             return redirect('/profile')
     try:
         if user_profile.user.role == 1:
-            classrooms = Classroom.objects.filter(students=user_profile).count()
+            classrooms = Classroom.objects.only('id', 'students').filter(students=request.user.userprofile).count()
         else:
-            classrooms = Classroom.objects.filter(tutor=user_profile).count()
+            classrooms = Classroom.objects.only('id', 'tutor').filter(tutor=request.user.userprofile).count()
     except:
-        classrooms: 0
+        pass
     context = {
-        "user_profile":user_profile,
+        "user_profile":request.user.userprofile,
         "user_profile_form":user_profile_form,
         "user_mini_form":user_mini_form,
         "classroom_count":classrooms,
@@ -61,10 +61,9 @@ def profile(request):
 
 @login_required(login_url='login')
 def notifications(request):
-    profile = userProfile.objects.get( user=request.user)
 
     # Fetch notifications for this user profile
-    notis = Notification.objects.filter(user=profile).order_by("-timestamp")
+    notis = request.user.userprofile.notifications.order_by("-timestamp")
 
     if request.GET:
         filter = request.GET.get('filter')
@@ -85,12 +84,18 @@ def notifications(request):
 @require_GET
 def mark_notification_as_read(request, nid):
     try:
-        noti = Notification.objects.get(id=nid)
+        noti = Notification.objects.only('id', 'read').get(id=nid)
         if not noti.read:
             noti.read = True
+            cache_key = f'user_{request.user.id}'
+            user = cache.cache.get(cache_key, default=None)
+            if user:
+                user.unread_notifications_count -= 1
+                cache.cache.set(cache_key, user, timeout=300)
             noti.save()
             return JsonResponse({'status':'success',})
         else:
             return JsonResponse({'status':'already seen'})
     except Notification.DoesNotExist:
         return JsonResponse({'status':'failure', 'message':'notification not found'})
+    
