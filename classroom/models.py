@@ -1,5 +1,4 @@
 from django.db import models, transaction
-from django.forms import ValidationError
 from accounts.models import User, userProfile
 from django.core.validators import MinLengthValidator
 from tinymce.models import HTMLField
@@ -19,25 +18,6 @@ class Classroom(models.Model):
     password = models.CharField(MinLengthValidator(8), max_length=16, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def delete(self, *args, **kwargs):
-        """
-        Deletes the assignment, playlit and announcement objects associated with classroom
-        To ensure related files gets deleted
-        """
-        for assignment in self.assignments.all():
-            assignment.delete()
-
-        for announcement in self.announcements.all():
-            announcement.delete()
-        
-        for student_data in self.classroom_students_data.all():
-            student_data.delete()
-            
-        self.cover_pic.delete()
-        super().delete(*args, **kwargs)
-
-
-
     class Meta:
         verbose_name = ("classroom")
         verbose_name_plural = ("classrooms")
@@ -56,10 +36,9 @@ class StudentClassroom(models.Model):
 
     def delete(self, *args, **kwargs):
         """deletes the submissions and files by student"""
-        for submission in self.student.students_submissions.all():
-            submission.submitted_file.delete()
-            submission.delete()
-
+        print('student class delete method called')
+        self.student.students_submissions.all().delete()
+        
         self.classroom.students.remove(self.student)
 
         super().delete(*args, **kwargs)
@@ -81,27 +60,14 @@ class Assignment(models.Model):
     
     def delete(self, *args, **kwargs):
         """
-        deletes the files and submission files associated with assignment object
         deletes the announcements and notifications associated with the assignment
         """
-        submissions = self.assignment_submissions.all()
-        submission_files = [submission.submitted_file.path for submission in submissions if submission.submitted_file]
-        submissions.delete()
-
-        # Delete files after bulk deleting submissions
-        for file_path in submission_files:
-            try:
-                default_storage.delete(file_path)
-            except FileNotFoundError:
-                pass
-
+        print('assignment delete method called')
+        
         # Delete associated announcements and notifications directly with bulk deletion
         link = f'/classroom/{self.classroom.id}/assignments/{self.id}/'
         Announcement.objects.filter(link=link).delete()
-        
-        # Delete the assignment file
-        if self.assignment:
-            self.assignment.delete(save=False)
+        Notification.objects.filter(link=link).delete()
 
         super().delete(*args, **kwargs)
 
@@ -112,7 +78,6 @@ class AssignmentSubmission(models.Model):
     student = models.ForeignKey(userProfile, related_name='students_submissions', on_delete=models.CASCADE)
     late_submission = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
-
 
     class Meta:
         unique_together = ('student', 'assignment')
@@ -131,11 +96,6 @@ class Announcement(models.Model):
     def __str__(self):
         return self.title
     
-    def delete(self, *args, **kwargs):
-        """Delelete announcements files if exist"""
-        if self.file:
-            self.file.delete()
-        super().delete(*args, **kwargs)
 
 class Notification(models.Model):
     title = models.CharField(max_length=50)
@@ -162,8 +122,7 @@ class Section(models.Model):
     def __str__(self) -> str:
         return self.title
  
-    @transaction.atomic
-    def delete(self, *args, **kwargs):
+    def delete(self, *args, skip_order_adjustment=False, **kwargs):
         """
         deletes the section while maintaining the order of the sections
         deleting section x will decrease the order of sections > x by 1. 
@@ -171,9 +130,15 @@ class Section(models.Model):
         operation will be all in one or fail to maintain the order of all sections
         when operation fail for some lectures, ensuring atomicity
         """
-        for lecture in self.lectures.all():
-            lecture.delete(skip_order_adjustment=True)
+        print("section delete method called")
+        
+        if not skip_order_adjustment:
+            self.section_order_adjustments()
 
+        super().delete(*args, **kwargs)
+    
+    @transaction.atomic
+    def section_order_adjustments(self):
         curr_order = self.order
         self.order = 999
         self.save(update_fields=['order'])
@@ -181,8 +146,6 @@ class Section(models.Model):
         Section.objects.filter(
             classroom=self.classroom, order__gt=curr_order
         ).order_by('order').update(order=F('order')-1)
-        
-        super().delete(*args, **kwargs)
         
 
 class Lecture(models.Model):
@@ -204,6 +167,15 @@ class Lecture(models.Model):
         return f'section:{self.section.title} Lecture no:{self.order}'
 
     @transaction.atomic
+    def order_adjustments(self):
+        curr_order = self.order
+        self.order = 999
+        self.save(update_fields=['order'])
+
+        Lecture.objects.filter(
+            order__gt=curr_order, section=self.section
+        ).order_by('order').update(order=F('order')-1)
+    
     def delete(self, *args, skip_order_adjustment=False, **kwargs):
         """
         deletes the lecture while maintaining the order of the lectures
@@ -214,25 +186,16 @@ class Lecture(models.Model):
 
         also deletes the announcement associated with that lecture
         """
-        try:
-            self.attachment.delete()
-        except:
-            pass
+        print("lecture delete method called")
         try:
             link = f'/classroom/{self.section.classroom.id}/lectures/{self.slug}/'
             announcement = Announcement.objects.get(link=link)
             announcement.delete()
-            
-        except Exception as e:
+        except:
             pass
-        if not skip_order_adjustment:
-            curr_order = self.order
-            self.order = 999
-            self.save(update_fields=['order'])
 
-            Lecture.objects.filter(
-                order__gt=curr_order, section=self.section
-            ).order_by('order').update(order=F('order')-1)
+        if not skip_order_adjustment:
+            self.order_adjustments()
 
         super().delete(*args, **kwargs)
 
@@ -256,10 +219,3 @@ class Comment(models.Model):
     parent = models.ForeignKey('self', related_name="replies", on_delete=models.SET_NULL, null=True, blank=True)
     user = models.ForeignKey(userProfile, related_name="comments", on_delete=models.CASCADE)
     image = models.ImageField(upload_to='class/lectures/comments', null=True, blank=True)
-
-    def delete(self, *args, **kwargs):
-        """deletes the associated image if any"""
-        if self.image:
-            self.image.delete()
-        return super().delete(*args, **kwargs)
-    

@@ -112,6 +112,7 @@ class LectureForm(forms.ModelForm):
 
         old_video = self.instance.video
         old_attachment = self.instance.attachment
+        
 
         new_video = cleaned_data.get('video')
         new_attachment = cleaned_data.get('attachment')
@@ -124,10 +125,13 @@ class LectureForm(forms.ModelForm):
             if old_attachment:
                 old_attachment.delete(save=False)
 
-        title = cleaned_data.get('title')
-        uid = str(uuid.uuid4())
-        slug = slugify(f"{title}-{uid[:8]}")
-        cleaned_data['slug'] = slug
+        old_title = self.instance.title
+        new_title = cleaned_data.get('title')
+        
+        if old_title and old_title != new_title:
+            uid = str(uuid.uuid4())
+            slug = slugify(f"{new_title}-{uid[:8]}")
+            cleaned_data['slug'] = slug
 
 class CommentForm(forms.ModelForm):
     

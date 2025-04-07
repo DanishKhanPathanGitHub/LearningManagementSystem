@@ -21,16 +21,24 @@ from django.core import cache
 @login_required(login_url='login')
 @user_passes_test(check_role_student)
 def classroom(request, id):
-    user = request.user  # Access the authenticated user
+    user = request.user 
     if check_classroom_participant(user, id):
         try:
             class_data = load_class_data_from_cache(request, user.id, id)
+            print('class data printed', class_data)
             context = {
                 "Class":class_data['class'],
             }
+            print(context, context['Class'])
+            print("Rendering classroom.html with context:", context)
+            print("Type of class_data:", type(class_data))
+            print("Raw class_data:", class_data)
             return render(request, 'classroom/classroom.html', context)
-        except:
+        except Exception as e:
+            print("Exception occurred:", e)
             return render(request, '404.html')
+    else:
+        return render(request, '403.html')
 
 @login_required(login_url='login')
 @user_passes_test(check_role_student)
@@ -50,13 +58,6 @@ def classroomJoin(request):
                 content = f"User {request.user.username} Requested to join your classroom: {classroom_to_join.name}",
                 user=classroom_to_join.tutor
             )
-
-            cache_key = f"user_{classroom_to_join.tutor.id}"
-            tutor = cache.cache.get(cache_key, default=None)
-            if tutor:
-                tutor.unread_notifications_count += 1 
-                cache.cache.set(cache_key, tutor, timeout=180)
-
             messages.success(request, 'Wait for tutor to Approve your joining request')
             return redirect('home')
         except:

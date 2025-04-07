@@ -35,5 +35,6 @@ urlpatterns = [
     path('classroom/<int:id>/announcements_delete_bulk/', views.announcement_delete_bulk, name='announcement_delete_bulk'),
     path('classroom/<int:id>/announcements/add/', views.announcements_add, name='announcements_add'),
     path('tutor/', include('tutor.urls')),
+   
  ]
  

@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
 from django.db.models import Q
 from django.core import cache
+from django.utils import timezone
 
 def home(request):
     try:
@@ -45,9 +46,9 @@ def profile(request):
             return redirect('/profile')
     try:
         if user_profile.user.role == 1:
-            classrooms = Classroom.objects.only('id', 'students').filter(students=request.user.userprofile).count()
+            classrooms = Classroom.objects.only('id').filter(students=request.user.userprofile).count()
         else:
-            classrooms = Classroom.objects.only('id', 'tutor').filter(tutor=request.user.userprofile).count()
+            classrooms = Classroom.objects.only('id').filter(tutor=request.user.userprofile).count()
     except:
         pass
     context = {
@@ -88,10 +89,10 @@ def mark_notification_as_read(request, nid):
         if not noti.read:
             noti.read = True
             cache_key = f'user_{request.user.id}'
-            user = cache.cache.get(cache_key, default=None)
+            user, last_reload_at = cache.cache.get(cache_key, default=None)
             if user:
                 user.unread_notifications_count -= 1
-                cache.cache.set(cache_key, user, timeout=300)
+                cache.cache.set(cache_key, (user, timezone.now()), timeout=180)
             noti.save()
             return JsonResponse({'status':'success',})
         else:

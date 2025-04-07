@@ -16,8 +16,9 @@
             <div class="dashboard-card-info" id="specific-assignment-details-card">
                 <div class="class-info-header">
                     <!-- Class cover photo -->
+                    {% if Class.cover_pic %}
                     <img src="{{ Class.cover_pic.url }}" alt="Class Cover Photo" class="class-cover-photo object-cover rounded-lg mb-4">
-            
+                    {% endif %}
                     <!-- Form group for changing cover photo -->
                     <div class="specific-form-group-class-cover-photo mb-4">{{mini_form.cover_pic}}</div>
             

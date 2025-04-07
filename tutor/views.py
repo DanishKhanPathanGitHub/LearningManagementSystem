@@ -1,3 +1,4 @@
+import threading
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from classroom.models import *
@@ -53,12 +54,6 @@ def tutorClassroom(request, id):
                         link = f'/classroom/{Class.id}'
                     )
 
-                    cache_key = f"user_{student_id}"
-                    _student = cache.cache.get(cache_key)
-                    if _student:
-                        _student.unread_notifications_count += 1
-                        cache.cache.set(cache_key, _student, timeout=180)
-
                     return JsonResponse({
                             'status': 'success', 'message': 'Request approved',
                             'student': {
@@ -78,12 +73,6 @@ def tutorClassroom(request, id):
                             {Class.name} rejected by the tutor
                         """
                     )
-
-                    cache_key = f"user_{student_id}"
-                    _student = cache.cache.get(cache_key)
-                    if _student:
-                        _student.unread_notifications_count += 1
-                        cache.cache.set(cache_key, _student, timeout=180)
 
                     return JsonResponse({'status': 'success', 'message': 'Request rejected'})
                 else:
@@ -108,38 +97,52 @@ def tutorClassroom(request, id):
 def tutorClassroomDelete(request, id):
     user = request.user 
     if check_classroom_participant(user, id):
+
         if request.POST:
             Class = Classroom.objects.select_related('tutor__user').prefetch_related(
                 'assignments', 'assignments__assignment_submissions', 'announcements',
                 'classroom_students_data', 'students__user'
             ).get(id=id)
 
-            notifications = [
-                Notification(
-                    title="Classroom deactivated",
-                    content=f"Hello {student.user.username}! Your classroom: {Class.name} has been deactivated by the tutor.",
-                    user=student
-                )
-                for student in Class.students.all()
-            ]
-            Notification.objects.bulk_create(notifications)
+            def send_notification_to_students():
+                notifications = [
+                    Notification(
+                        title="Classroom deactivated",
+                        content=f"Hello {student.user.username}! Your classroom: {Class.name} has been deactivated by the tutor.",
+                        user=student
+                    )
+                    for student in Class.students.all()
+                ]
+                Notification.objects.bulk_create(notifications)
 
-            for student in Class.students.all():
-                cache_key = f"user_{student.user.id}"
-                student = cache.cache.get(cache_key)
-                if student:
-                    student.unread_notifications_count += 1
-                    cache.cache.set(cache_key, student, timeout=180)
-                
 
-            Class.delete()
-            
+            def deleting_class():   
+                Class.delete()
+
+            def deleting_the_cache():
+                student_cache_keys = [f'classroom_participant_{student.user.id}_{id}' for student in Class.students.all()]
+                for key in student_cache_keys:
+                    cache.cache.delete(key=key)
+
+            notification_thread = threading.Thread(target=send_notification_to_students)
+            deletion_thread = threading.Thread(target=deleting_class)
+            deletion_cache_thread = threading.Thread(target=deleting_the_cache)
+
+            notification_thread.start()
+            deletion_thread.start()
+            deletion_cache_thread.start()
+
+            notification_thread.join()
+            deletion_thread.join()
+            deletion_cache_thread.join()
+
             cache_key = f"classroom_participant_{request.user.id}_{id}"
             cache.cache.delete(key=cache_key) 
-
+       
             messages.success(request, 'Your classroom has been deleted successfully.')
             return redirect('home')
-   
+        else:
+            return render(request, '403.html')
 
 @login_required(login_url='login')
 @user_passes_test(check_role_tutor)
@@ -269,12 +272,6 @@ def remove_student_from_class(request, id, sid):
                     user = student_profile
                 )
                 
-                cache_key = f'user_{student_profile.user.id}'
-                _student = cache.cache.get(cache_key)
-                if _student:
-                    _student.unread_notifications_count+=1
-                    cache.cache.set(cache_key, _student, timeout=180)
-
                 cache_key = f'classroom_participant_{student_profile}_{id}'
                 cache.cache.delete(cache_key) 
 
@@ -361,11 +358,6 @@ def tutorSpecificAssignment(request, id, asid):
                         in {Class.name} got approoved by the tutor.",
                         link = f'/classroom/{Class.id}/assignments/{assignment.id}'
                     )
-                    cache_key = f'user_{submission.student.user.id}'
-                    _student = cache.cache.get(cache_key)
-                    if _student:
-                        _student.unread_notification_count = 180
-                        cache.cache.set(cache_key, _student, timeout=180)
                     
                     cache.cache.set(f'cache_reload_{id}_student', (True, timezone.now()), timeout=181)
                     return JsonResponse({
@@ -392,11 +384,6 @@ def tutorSpecificAssignment(request, id, asid):
                         in {Class.name} got rejected by the tutor. You have to resubmit it.",
                         link = f'/classroom/{Class.id}/assignments/{assignment.id}'
                     )
-                    cache_key = f'user_{submission.student.user.id}'
-                    _student = cache.cache.get(cache_key)
-                    if _student:
-                        _student.unread_notifications_count+=1
-                        cache.cache.set(cache_key, _student, timeout=180)
                     
                     cache.cache.set(f'cache_reload_{id}_student', (True, timezone.now()), timeout=181)
 
@@ -459,15 +446,7 @@ def notify_all(request, id, asid):
             for student in students 
         ]
         Notification.objects.bulk_create(notifications)
-        for student in students:
-            cache_key = f'user_{student.user.id}'
-            _student = cache.cache.get(cache_key)
-            if _student:
-                _student.unread_notifications_count+=1
-                cache.cache.set(cache_key, _student, timeout=180)
             
-            
-       
         return JsonResponse({'status': 'success', 'message': 'Notifications sent to all students.'})
     
     except Assignment.DoesNotExist:

@@ -42,7 +42,9 @@
                <span>{{classroom.created_at}}</span>
             </div>
          </div>
+         {% if classroom.cover_pic %}
          <img src="{{ classroom.cover_pic.url }}" class="thumb" alt="">
+         {% endif %}
          <h3 class="title">{{classroom.tutor.user.username}}</h3>
          {% if user.role == 2 %}
          <a href="{% url "tutorClassroom" classroom.id %}" class="inline-btn">Go to classroom</a>

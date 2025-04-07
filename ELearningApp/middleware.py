@@ -3,7 +3,8 @@ from django.db import connection
 from django.utils.deprecation import MiddlewareMixin
 
 class QueryLoggingMiddleware(MiddlewareMixin):
-    def process_request(self, request):
+    pass
+"""    def process_request(self, request):
         self.start_time = time.time()
 
     def process_response(self, request, response):
@@ -23,4 +24,14 @@ class QueryLoggingMiddleware(MiddlewareMixin):
             print('-' * 70)
             count+=1
         print(f"{'-'*55}\n")
+        print(f"Total time: {total_time:.2f}ms")
+        return response
+"""    
+class DebugMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        print(f"Middleware Stack: {request.META.get('MIDDLEWARE', 'Not Found')}")
+        response = self.get_response(request)
         return response

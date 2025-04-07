@@ -1,10 +1,9 @@
 from collections import defaultdict
 from django.utils import timezone
 import datetime
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.shortcuts import render
 from .models import Classroom, Assignment, Announcement, Lecture, Section, StudentClassroom, StudentLectureProgress
-from accounts.models import userProfile, User
 from accounts.utils import image_validator
 import os
 from django.core import cache
@@ -124,8 +123,8 @@ def load_class_data_from_cache(request, user_id, id):
                 'announcements',
                 queryset=Announcement.objects.order_by('-upload_date')
             )
-        ).only(
-            'name', 'description', 'cover_pic', 'created_at'  
+        ).select_related('tutor').only(
+            'name', 'description', 'cover_pic', 'created_at', 'tutor_id'
         ).annotate(
             students_count=Count('students')
         ).get(id=id)
