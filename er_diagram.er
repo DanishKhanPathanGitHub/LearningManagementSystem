@@ -1,0 +1,198 @@
+[accounts_user]
+    *id {label:"INTEGER"}
+    date_created {label:"DATETIME"}
+    date_joined {label:"DATETIME"}
+    date_modified {label:"DATETIME"}
+    email {label:"VARCHAR(254)"}
+    firstname {label:"VARCHAR(50)"}
+    is_active {label:"BOOLEAN"}
+    is_admin {label:"BOOLEAN"}
+    is_staff {label:"BOOLEAN"}
+    is_superadmin {label:"BOOLEAN"}
+    last_login {label:"DATETIME"}
+    lastname {label:"VARCHAR(50)"}
+    password {label:"VARCHAR(128)"}
+    role {label:"INTEGER"}
+    username {label:"VARCHAR(50)"}
+[accounts_userprofile]
+    *id {label:"INTEGER"}
+    created_at {label:"DATETIME"}
+    modified_at {label:"DATETIME"}
+    profile_pic {label:"VARCHAR(100)"}
+    user_id {label:"BIGINT"}
+[auth_group]
+    *id {label:"INTEGER"}
+    name {label:"VARCHAR(150)"}
+[auth_group_permissions]
+    *id {label:"INTEGER"}
+    group_id {label:"INTEGER"}
+    permission_id {label:"INTEGER"}
+[auth_permission]
+    *id {label:"INTEGER"}
+    codename {label:"VARCHAR(100)"}
+    content_type_id {label:"INTEGER"}
+    name {label:"VARCHAR(255)"}
+[django_content_type]
+    *id {label:"INTEGER"}
+    app_label {label:"VARCHAR(100)"}
+    model {label:"VARCHAR(100)"}
+[chatroom_chatgroup]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    personal_group {label:"BOOLEAN"}
+[classroom_classroom]
+    *id {label:"INTEGER"}
+    code {label:"VARCHAR(16)"}
+    cover_pic {label:"VARCHAR(100)"}
+    created_at {label:"DATETIME"}
+    description {label:"TEXT"}
+    name {label:"VARCHAR(50)"}
+    password {label:"VARCHAR(16)"}
+    tutor_id {label:"BIGINT"}
+[chatroom_chatgroup_members]
+    *id {label:"INTEGER"}
+    chatgroup_id {label:"BIGINT"}
+    userprofile_id {label:"BIGINT"}
+[chatroom_groupmessage]
+    *id {label:"INTEGER"}
+    author_id {label:"BIGINT"}
+    body {label:"VARCHAR(500)"}
+    created_at {label:"DATETIME"}
+    file {label:"VARCHAR(100)"}
+    group_id {label:"BIGINT"}
+    image {label:"VARCHAR(100)"}
+[classroom_announcement]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    content {label:"TEXT"}
+    file {label:"VARCHAR(100)"}
+    link {label:"VARCHAR(1000)"}
+    title {label:"VARCHAR(50)"}
+    tutor_link {label:"VARCHAR(1000)"}
+    upload_date {label:"DATETIME"}
+[classroom_assignment]
+    *id {label:"INTEGER"}
+    assigned_date {label:"DATETIME"}
+    assignment {label:"VARCHAR(100)"}
+    classroom_id {label:"BIGINT"}
+    description {label:"TEXT"}
+    due_date {label:"DATETIME"}
+    late_submission_allow {label:"BOOLEAN"}
+    name {label:"VARCHAR(50)"}
+[classroom_assignmentsubmission]
+    *id {label:"INTEGER"}
+    assignment_id {label:"BIGINT"}
+    is_approved {label:"BOOLEAN"}
+    late_submission {label:"BOOLEAN"}
+    student_id {label:"BIGINT"}
+    submitted_file {label:"VARCHAR(100)"}
+    upload_date {label:"DATETIME"}
+[classroom_classroom_requests]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    userprofile_id {label:"BIGINT"}
+[classroom_classroom_students]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    userprofile_id {label:"BIGINT"}
+[classroom_comment]
+    *id {label:"INTEGER"}
+    image {label:"VARCHAR(100)"}
+    lecture_id {label:"BIGINT"}
+    parent_id {label:"BIGINT"}
+    text {label:"TEXT"}
+    timestamp {label:"DATETIME"}
+    upvote {label:"INTEGER"}
+    user_id {label:"BIGINT"}
+[classroom_lecture]
+    *id {label:"INTEGER"}
+    attachment {label:"VARCHAR(100)"}
+    content {label:"TEXT"}
+    order {label:"INTEGER"}
+    section_id {label:"BIGINT"}
+    slug {label:"VARCHAR(200)"}
+    title {label:"VARCHAR(150)"}
+    updated_at {label:"DATETIME"}
+    upload_date {label:"DATETIME"}
+    video {label:"VARCHAR(100)"}
+[classroom_section]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    order {label:"INTEGER"}
+    title {label:"VARCHAR(50)"}
+    updated_at {label:"DATE"}
+    uploaded_at {label:"DATE"}
+[classroom_comment_upvoted_student]
+    *id {label:"INTEGER"}
+    comment_id {label:"BIGINT"}
+    userprofile_id {label:"BIGINT"}
+[classroom_notification]
+    *id {label:"INTEGER"}
+    assignment_id {label:"BIGINT"}
+    content {label:"TEXT"}
+    link {label:"VARCHAR(500)"}
+    read {label:"BOOLEAN"}
+    timestamp {label:"DATETIME"}
+    title {label:"VARCHAR(50)"}
+    user_id {label:"BIGINT"}
+[classroom_studentclassroom]
+    *id {label:"INTEGER"}
+    classroom_id {label:"BIGINT"}
+    joined_date {label:"DATETIME"}
+    student_id {label:"BIGINT"}
+[classroom_studentlectureprogress]
+    *id {label:"INTEGER"}
+    lecture_id {label:"BIGINT"}
+    student_id {label:"BIGINT"}
+    timestamp {label:"DATETIME"}
+[django_admin_log]
+    *id {label:"INTEGER"}
+    action_flag {label:"INTEGER"}
+    action_time {label:"DATETIME"}
+    change_message {label:"TEXT"}
+    content_type_id {label:"INTEGER"}
+    object_id {label:"TEXT"}
+    object_repr {label:"VARCHAR(200)"}
+    user_id {label:"BIGINT"}
+[django_migrations]
+    *id {label:"INTEGER"}
+    app {label:"VARCHAR(255)"}
+    applied {label:"DATETIME"}
+    name {label:"VARCHAR(255)"}
+[django_session]
+    *session_key {label:"VARCHAR(40)"}
+    expire_date {label:"DATETIME"}
+    session_data {label:"TEXT"}
+accounts_user."id" 1--* accounts_userprofile."user_id"
+auth_permission."id" 1--* auth_group_permissions."permission_id"
+auth_group."id" 1--* auth_group_permissions."group_id"
+django_content_type."id" 1--* auth_permission."content_type_id"
+classroom_classroom."id" 1--* chatroom_chatgroup."classroom_id"
+accounts_userprofile."id" 1--* classroom_classroom."tutor_id"
+accounts_userprofile."id" 1--* chatroom_chatgroup_members."userprofile_id"
+chatroom_chatgroup."id" 1--* chatroom_chatgroup_members."chatgroup_id"
+chatroom_chatgroup."id" 1--* chatroom_groupmessage."group_id"
+accounts_userprofile."id" 1--* chatroom_groupmessage."author_id"
+classroom_classroom."id" 1--* classroom_announcement."classroom_id"
+classroom_classroom."id" 1--* classroom_assignment."classroom_id"
+classroom_assignment."id" 1--* classroom_assignmentsubmission."assignment_id"
+accounts_userprofile."id" 1--* classroom_assignmentsubmission."student_id"
+accounts_userprofile."id" 1--* classroom_classroom_requests."userprofile_id"
+classroom_classroom."id" 1--* classroom_classroom_requests."classroom_id"
+classroom_classroom."id" 1--* classroom_classroom_students."classroom_id"
+accounts_userprofile."id" 1--* classroom_classroom_students."userprofile_id"
+classroom_lecture."id" 1--* classroom_comment."lecture_id"
+accounts_userprofile."id" 1--* classroom_comment."user_id"
+classroom_comment."id" ?--* classroom_comment."parent_id"
+classroom_section."id" 1--* classroom_lecture."section_id"
+classroom_classroom."id" 1--* classroom_section."classroom_id"
+classroom_comment."id" 1--* classroom_comment_upvoted_student."comment_id"
+accounts_userprofile."id" 1--* classroom_comment_upvoted_student."userprofile_id"
+accounts_userprofile."id" 1--* classroom_notification."user_id"
+classroom_assignment."id" ?--* classroom_notification."assignment_id"
+classroom_classroom."id" 1--* classroom_studentclassroom."classroom_id"
+accounts_userprofile."id" 1--* classroom_studentclassroom."student_id"
+classroom_lecture."id" 1--* classroom_studentlectureprogress."lecture_id"
+accounts_userprofile."id" 1--* classroom_studentlectureprogress."student_id"
+django_content_type."id" ?--* django_admin_log."content_type_id"
+accounts_user."id" 1--* django_admin_log."user_id"

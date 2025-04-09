@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'classroom',
     'tutor',
 
+    'django_extensions',
     'embed_video',
     'tinymce',
     'debug_toolbar',
